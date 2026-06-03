@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, Route, Routes, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import './App.css'
 import { formatPostDate, stripHtml } from './lib/format'
-import { fetchPost, fetchPosts, getFeaturedImage, type WpPost } from './lib/wpApi'
+import { fetchPost, fetchPosts, getAuthorName, getFeaturedImage, type WpPost, type WpPostPage } from './lib/wpApi'
+
+const POSTS_PER_PAGE = 7
 
 type AsyncState<T> =
   | { status: 'loading'; data?: undefined; error?: undefined }
@@ -10,13 +12,17 @@ type AsyncState<T> =
   | { status: 'error'; data?: undefined; error: string }
 
 function App() {
+  const location = useLocation()
+
   return (
     <div className="app-shell">
       <SiteHeader />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/post/:id" element={<PostPage />} />
-      </Routes>
+      <div className="route-stage" key={location.pathname}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/post/:id" element={<PostPage />} />
+        </Routes>
+      </div>
       <SiteFooter />
     </div>
   )
@@ -32,7 +38,7 @@ function SiteHeader() {
           </span>
           <span className="brand-name">
             <span className="brand-main">nobimuso</span>
-            <span className="brand-sub">RE:VIVE BLOG</span>
+            <span className="brand-sub">濃尾無双RE:VIVE</span>
           </span>
         </Link>
         <nav className="simple-nav" aria-label="メインナビゲーション">
@@ -45,15 +51,18 @@ function SiteHeader() {
 }
 
 function HomePage() {
-  const [state, setState] = useState<AsyncState<WpPost[]>>({ status: 'loading' })
+  const [currentPage, setCurrentPage] = useState(1)
+  const [state, setState] = useState<AsyncState<WpPostPage>>({ status: 'loading' })
 
   useEffect(() => {
     let ignore = false
 
-    fetchPosts()
-      .then((posts) => {
+    setState({ status: 'loading' })
+
+    fetchPosts(currentPage, POSTS_PER_PAGE)
+      .then((page) => {
         if (!ignore) {
-          setState({ status: 'success', data: posts })
+          setState({ status: 'success', data: page })
         }
       })
       .catch((error: unknown) => {
@@ -68,17 +77,17 @@ function HomePage() {
     return () => {
       ignore = true
     }
-  }, [])
+  }, [currentPage])
 
   return (
     <main>
       <section className="hero">
         <div className="page hero-box">
           <div>
-            <span className="label">Headless WordPress</span>
-            <h1 className="hero-title">RE:VIVE Journal</h1>
+            <span className="label">濃尾無双RE:VIVE</span>
+            <h1 className="hero-title">濃尾無双RE:VIVE</h1>
             <p className="hero-lead">
-              WordPress から届く記事を、nobimuso らしい明るいカードUIでまとめました。読みものを軽やかに探して、気になる記事へそのまま進めます。
+              虎子たちはここに集まっていたんだね
             </p>
             <div className="hero-actions">
               <a className="btn btn-primary" href="#latest">
@@ -99,58 +108,175 @@ function HomePage() {
         <div className="page">
           <div className="section-head">
             <div>
-              <h2 className="section-title">Latest Posts</h2>
-              <p className="section-desc">WordPress REST API から取得した最新10件です。</p>
+              <h2 className="section-title">最新記事</h2>
+              <p className="section-desc">虎子たちの記録を、新しい順に並べています。</p>
             </div>
           </div>
-          <PostList state={state} />
+          <PostList currentPage={currentPage} state={state} onPageChange={setCurrentPage} />
         </div>
       </section>
     </main>
   )
 }
 
-function PostList({ state }: { state: AsyncState<WpPost[]> }) {
+function PostList({
+  currentPage,
+  state,
+  onPageChange,
+}: {
+  currentPage: number
+  state: AsyncState<WpPostPage>
+  onPageChange: (page: number) => void
+}) {
   if (state.status === 'loading') {
-    return <StatusCard title="記事を読み込んでいます" text="WordPress から最新の投稿を取得中です。" />
+    return null
   }
 
   if (state.status === 'error') {
     return <StatusCard title="記事を取得できませんでした" text={state.error} tone="error" />
   }
 
-  if (state.data.length === 0) {
+  if (state.data.posts.length === 0) {
     return <StatusCard title="投稿がありません" text="公開済みの記事が見つかりませんでした。" />
   }
 
-  const [pickup, ...posts] = state.data
+  const [pickup, ...posts] = state.data.posts
 
   return (
     <>
       <PostCard post={pickup} variant="pickup" />
       {posts.length > 0 && (
         <div className="post-grid">
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} />
+          {posts.map((post, index) => (
+            <PostCard key={post.id} post={post} index={index + 1} />
           ))}
         </div>
       )}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={state.data.totalPages}
+        total={state.data.total}
+        onPageChange={onPageChange}
+      />
     </>
   )
 }
 
-function PostCard({ post, variant }: { post: WpPost; variant?: 'pickup' }) {
+function Pagination({
+  currentPage,
+  totalPages,
+  total,
+  onPageChange,
+}: {
+  currentPage: number
+  totalPages: number
+  total: number
+  onPageChange: (page: number) => void
+}) {
+  if (totalPages <= 1) {
+    return null
+  }
+
+  const pages = getVisiblePages(currentPage, totalPages)
+
+  function goToPage(page: number) {
+    onPageChange(page)
+    document.getElementById('latest')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  return (
+    <nav className="pagination" aria-label="記事一覧のページ切り替え">
+      <p className="pagination-summary">
+        {total}件中 {currentPage} / {totalPages} ページ
+      </p>
+      <div className="pagination-controls">
+        <button
+          className="pagination-button"
+          type="button"
+          aria-label="最初のページへ"
+          onClick={() => goToPage(1)}
+          disabled={currentPage === 1}
+        >
+          &lt;&lt;
+        </button>
+        <button
+          className="pagination-button"
+          type="button"
+          aria-label="前のページへ"
+          onClick={() => goToPage(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          &lt;
+        </button>
+        <div className="pagination-pages">
+          {pages.map((page) => (
+            <button
+              className="pagination-page"
+              type="button"
+              key={page}
+              onClick={() => goToPage(page)}
+              aria-current={page === currentPage ? 'page' : undefined}
+            >
+              {page}
+            </button>
+          ))}
+        </div>
+        <button
+          className="pagination-button"
+          type="button"
+          aria-label="次のページへ"
+          onClick={() => goToPage(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        >
+          &gt;
+        </button>
+        <button
+          className="pagination-button"
+          type="button"
+          aria-label="最後のページへ"
+          onClick={() => goToPage(totalPages)}
+          disabled={currentPage === totalPages}
+        >
+          &gt;&gt;
+        </button>
+      </div>
+    </nav>
+  )
+}
+
+function getVisiblePages(currentPage: number, totalPages: number): number[] {
+  if (totalPages <= 3) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  if (currentPage === 1) {
+    return [1, 2, 3]
+  }
+
+  if (currentPage === totalPages) {
+    return [totalPages - 2, totalPages - 1, totalPages]
+  }
+
+  return [currentPage - 1, currentPage, currentPage + 1]
+}
+
+function PostCard({ post, variant, index = 0 }: { post: WpPost; variant?: 'pickup'; index?: number }) {
   const image = getFeaturedImage(post)
+  const authorName = getAuthorName(post)
   const title = stripHtml(post.title.rendered)
   const excerpt = stripHtml(post.excerpt.rendered)
 
   return (
-    <Link className={`post-card ${variant === 'pickup' ? 'pickup' : ''}`} to={`/post/${post.id}`}>
+    <Link
+      className={`post-card ${variant === 'pickup' ? 'pickup' : ''}`}
+      style={{ '--card-index': index } as CSSProperties}
+      to={`/post/${post.id}`}
+    >
       <PostImage imageUrl={image?.source_url} alt={image?.alt_text || title} className="thumb" />
       <div className="post-body">
         <div className="meta">
           <span className="chip">{formatPostDate(post.date)}</span>
-          <span>ID {post.id}</span>
+          {authorName && <span>{authorName}</span>}
         </div>
         <h3 className="post-title">{title}</h3>
         {excerpt && <p className="post-excerpt">{excerpt}</p>}
@@ -194,9 +320,7 @@ function PostPage() {
   return (
     <main className="article-page">
       <div className="page article-shell">
-        {state.status === 'loading' && (
-          <StatusCard title="記事を読み込んでいます" text="WordPress から本文を取得中です。" />
-        )}
+        {state.status === 'loading' && null}
         {state.status === 'error' && <StatusCard title="記事を取得できませんでした" text={state.error} tone="error" />}
         {state.status === 'success' && <Article post={state.data} />}
       </div>
@@ -206,6 +330,7 @@ function PostPage() {
 
 function Article({ post }: { post: WpPost }) {
   const image = getFeaturedImage(post)
+  const authorName = getAuthorName(post)
   const title = useMemo(() => stripHtml(post.title.rendered), [post.title.rendered])
 
   return (
@@ -215,7 +340,7 @@ function Article({ post }: { post: WpPost }) {
         <div className="article-body">
           <div className="meta">
             <span className="chip">{formatPostDate(post.date)}</span>
-            <span>ID {post.id}</span>
+            {authorName && <span>{authorName}</span>}
           </div>
           <h1 className="article-title">{title}</h1>
           <div className="article-content" dangerouslySetInnerHTML={{ __html: post.content.rendered }} />
@@ -268,8 +393,8 @@ function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="page footer-inner">
-        <span className="footer-logo">nobimuso RE:VIVE</span>
-        <span>Powered by WordPress REST API</span>
+        <span className="footer-logo">濃尾無双RE:VIVE</span>
+        <span>虎子たちはここに集まっていたんだね</span>
       </div>
     </footer>
   )

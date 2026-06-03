@@ -4,6 +4,11 @@
   flex-direction: column;
 }
 
+.route-stage {
+  flex: 1;
+  animation: route-enter 0.32s ease both;
+}
+
 .page {
   width: min(1060px, calc(100% - 28px));
   margin: 0 auto;
@@ -31,6 +36,7 @@
   align-items: center;
   gap: 12px;
   font-weight: 900;
+  min-width: 0;
 }
 
 .brand-mark {
@@ -51,6 +57,7 @@
 .brand-name {
   display: grid;
   line-height: 1.05;
+  min-width: 0;
 }
 
 .brand-main {
@@ -104,6 +111,8 @@
   grid-template-columns: minmax(0, 1fr) 280px;
   gap: 34px;
   align-items: center;
+  min-width: 0;
+  animation: soft-rise 0.46s ease both;
 }
 
 .label {
@@ -130,9 +139,10 @@
 
 .hero-title {
   margin: 18px 0 16px;
-  font-size: clamp(42px, 8vw, 82px);
+  font-size: clamp(38px, 6.8vw, 72px);
   line-height: 0.96;
   font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
 .hero-lead {
@@ -254,19 +264,23 @@
   border-radius: 30px;
   overflow: hidden;
   box-shadow: 0 8px 0 var(--shadow);
+  min-width: 0;
+  animation: card-pop 0.42s cubic-bezier(0.2, 0.9, 0.2, 1.12) both;
+  animation-delay: calc(var(--card-index, 0) * 55ms);
   transition:
     transform 0.16s ease,
     box-shadow 0.16s ease;
 }
 
 .post-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-5px) rotate(-0.35deg);
   box-shadow: 0 12px 0 var(--shadow);
 }
 
 .thumb,
 .article-cover {
   min-height: 160px;
+  aspect-ratio: 16 / 10;
   display: grid;
   place-items: center;
   color: white;
@@ -323,6 +337,7 @@
   font-size: 20px;
   line-height: 1.45;
   font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
 .post-excerpt {
@@ -331,6 +346,7 @@
   line-height: 1.75;
   font-weight: 700;
   font-size: 14px;
+  overflow-wrap: anywhere;
 }
 
 .pickup {
@@ -341,6 +357,7 @@
 
 .pickup .thumb {
   min-height: 280px;
+  aspect-ratio: auto;
 }
 
 .pickup .post-body {
@@ -380,6 +397,66 @@
   background: #fff7cf;
 }
 
+.pagination {
+  margin-top: 28px;
+  background: var(--surface);
+  border: 5px solid white;
+  border-radius: 30px;
+  padding: 18px;
+  box-shadow: 0 8px 0 var(--shadow);
+}
+
+.pagination-summary {
+  margin: 0 0 14px;
+  color: #5d7048;
+  font-size: 14px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.pagination-pages {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+}
+
+.pagination-button,
+.pagination-page {
+  min-width: 42px;
+  min-height: 44px;
+  border: 3px solid white;
+  border-radius: 999px;
+  background: #edf8ca;
+  color: var(--green-dark);
+  box-shadow: 0 4px 0 rgba(37, 132, 29, 0.2);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.pagination-button {
+  padding: 0 12px;
+}
+
+.pagination-page[aria-current='page'] {
+  background: linear-gradient(#45c943, #149c2e);
+  color: white;
+  box-shadow: 0 4px 0 var(--green-dark);
+}
+
+.pagination-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+}
+
 .article-page {
   flex: 1;
   padding: 48px 0 70px;
@@ -395,6 +472,7 @@
   border-radius: 36px;
   box-shadow: 0 10px 0 var(--shadow);
   overflow: hidden;
+  animation: article-enter 0.48s cubic-bezier(0.2, 0.9, 0.2, 1.08) both;
 }
 
 .article-cover {
@@ -417,6 +495,7 @@
   font-size: 17px;
   line-height: 2;
   font-weight: 650;
+  overflow-wrap: anywhere;
 }
 
 .article-content > *:first-child {
@@ -509,6 +588,8 @@
   box-shadow: 0 6px 0 var(--shadow);
   font-weight: 900;
   color: var(--green-dark);
+  animation: soft-rise 0.42s ease both;
+  animation-delay: 120ms;
 }
 
 .small-link-card span {
@@ -523,6 +604,64 @@
   padding: 34px 0;
   background: #9ed85f;
   border-top: 5px solid rgba(255, 255, 255, 0.55);
+}
+
+@keyframes route-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes soft-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes card-pop {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.96) rotate(0.6deg);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.01) rotate(-0.25deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+  }
+}
+
+@keyframes article-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.005);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .footer-inner {
@@ -569,6 +708,7 @@
     padding: 12px 0;
     align-items: flex-start;
     flex-direction: column;
+    gap: 12px;
   }
 
   .simple-nav {
@@ -583,6 +723,11 @@
 
   .hero {
     padding-top: 30px;
+    padding-bottom: 20px;
+  }
+
+  .hero-box {
+    padding: 22px 18px 24px;
   }
 
   .hero-box,
@@ -592,9 +737,36 @@
   }
 
   .hero-title {
-    font-size: 44px;
+    font-size: 38px;
     -webkit-text-stroke-width: 1.5px;
     text-stroke-width: 1.5px;
+  }
+
+  .hero-lead {
+    font-size: 16px;
+    line-height: 1.8;
+  }
+
+  .hero-actions {
+    display: grid;
+    gap: 10px;
+  }
+
+  .btn {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .section {
+    padding: 26px 0;
+  }
+
+  .section-head {
+    display: block;
+  }
+
+  .section-title {
+    font-size: 30px;
   }
 
   .post-grid,
@@ -609,5 +781,83 @@
 
   .pickup .post-body {
     padding: 22px;
+  }
+
+  .post-body {
+    padding: 16px;
+  }
+
+  .post-title {
+    font-size: 18px;
+  }
+
+  .pickup .post-title {
+    font-size: 24px;
+  }
+
+  .article-page {
+    padding: 28px 0 56px;
+  }
+
+  .article-body {
+    padding: 22px 16px;
+  }
+
+  .article-title {
+    font-size: 32px;
+    -webkit-text-stroke-width: 1.4px;
+    text-stroke-width: 1.4px;
+  }
+
+  .article-content {
+    font-size: 16px;
+    line-height: 1.9;
+  }
+
+  .article-content h2 {
+    font-size: 22px;
+  }
+
+  .article-content h3 {
+    font-size: 19px;
+  }
+
+  .pagination {
+    border-radius: 26px;
+    padding: 16px 12px;
+  }
+
+  .pagination-controls {
+    gap: 6px;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: 4px;
+  }
+
+  .pagination-pages {
+    flex: 0 0 auto;
+  }
+
+  .pagination-button,
+  .pagination-page {
+    min-width: 38px;
+    min-height: 40px;
+    padding: 0 9px;
+  }
+
+  .footer-inner {
+    display: grid;
+    justify-items: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
