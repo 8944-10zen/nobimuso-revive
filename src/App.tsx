@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Heart, Sparkles, Star } from 'lucide-react'
 import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import './App.css'
@@ -8,17 +8,31 @@ import { formatPostDate, stripHtml } from './lib/format'
 import { fetchPost, fetchPosts, getAuthorName, getFeaturedImage, type WpPost, type WpPostPage } from './lib/wpApi'
 
 const POSTS_PER_PAGE = 7
+const placeholderImages = Object.values(
+  import.meta.glob<string>('./assets/placeholders/*.{png,jpg,jpeg,webp,avif}', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+  }),
+).sort()
 
 type AsyncState<T> =
   | { status: 'loading'; data?: undefined; error?: undefined }
   | { status: 'success'; data: T; error?: undefined }
   | { status: 'error'; data?: undefined; error: string }
 
+type TapFlare = {
+  id: number
+  x: number
+  y: number
+}
+
 function App() {
   const location = useLocation()
 
   return (
     <div className="app-shell">
+      <TapFlareLayer />
       <SiteHeader />
       <div className="route-stage" key={location.pathname}>
         <Routes>
@@ -27,6 +41,52 @@ function App() {
         </Routes>
       </div>
       <SiteFooter />
+    </div>
+  )
+}
+
+function TapFlareLayer() {
+  const [flares, setFlares] = useState<TapFlare[]>([])
+  const nextId = useRef(0)
+
+  useEffect(() => {
+    const timers = new Set<ReturnType<typeof window.setTimeout>>()
+
+    function addFlare(event: PointerEvent) {
+      if (event.button !== 0) {
+        return
+      }
+
+      const id = nextId.current
+      nextId.current += 1
+
+      setFlares((current) => [...current, { id, x: event.clientX, y: event.clientY }])
+
+      const timer = window.setTimeout(() => {
+        setFlares((current) => current.filter((flare) => flare.id !== id))
+        timers.delete(timer)
+      }, 760)
+
+      timers.add(timer)
+    }
+
+    window.addEventListener('pointerdown', addFlare, { passive: true })
+
+    return () => {
+      window.removeEventListener('pointerdown', addFlare)
+      timers.forEach((timer) => window.clearTimeout(timer))
+    }
+  }, [])
+
+  return (
+    <div className="tap-flare-layer" aria-hidden="true">
+      {flares.map((flare) => (
+        <span
+          className="tap-flare"
+          key={flare.id}
+          style={{ '--tap-x': `${flare.x}px`, '--tap-y': `${flare.y}px` } as CSSProperties}
+        />
+      ))}
     </div>
   )
 }
@@ -50,8 +110,6 @@ function HomePage() {
   useEffect(() => {
     let ignore = false
 
-    setState({ status: 'loading' })
-
     fetchPosts(currentPage, POSTS_PER_PAGE)
       .then((page) => {
         if (!ignore) {
@@ -71,6 +129,11 @@ function HomePage() {
       ignore = true
     }
   }, [currentPage])
+
+  function handlePageChange(page: number) {
+    setState({ status: 'loading' })
+    setCurrentPage(page)
+  }
 
   return (
     <main>
@@ -94,7 +157,7 @@ function HomePage() {
               <h2 className="section-title">最新記事</h2>
             </div>
           </div>
-          <PostList currentPage={currentPage} state={state} onPageChange={setCurrentPage} />
+          <PostList currentPage={currentPage} state={state} onPageChange={handlePageChange} />
         </div>
       </section>
     </main>
@@ -267,7 +330,7 @@ function PostCard({ post, variant, index = 0 }: { post: WpPost; variant?: 'picku
       style={{ '--card-index': index } as CSSProperties}
       to={`/post/${post.id}`}
     >
-      <PostImage imageUrl={image?.source_url} alt={image?.alt_text || title} className="thumb" />
+      <PostImage imageUrl={image?.source_url} alt={image?.alt_text || title} className="thumb" placeholderKey={post.id} />
       <div className="post-body">
         <div className="meta">
           <span className="chip">{formatPostDate(post.date)}</span>
@@ -286,7 +349,6 @@ function PostPage() {
 
   useEffect(() => {
     if (!id) {
-      setState({ status: 'error', error: '記事IDが指定されていません。' })
       return
     }
 
@@ -312,6 +374,16 @@ function PostPage() {
     }
   }, [id])
 
+  if (!id) {
+    return (
+      <main className="article-page">
+        <div className="page article-shell">
+          <StatusCard title="記事を取得できませんでした" text="記事IDが指定されていません。" tone="error" />
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="article-page">
       <div className="page article-shell">
@@ -331,7 +403,12 @@ function Article({ post }: { post: WpPost }) {
   return (
     <>
       <article className="article-card">
-        <PostImage imageUrl={image?.source_url} alt={image?.alt_text || title} className="article-cover" />
+        <PostImage
+          imageUrl={image?.source_url}
+          alt={image?.alt_text || title}
+          className="article-cover"
+          placeholderKey={post.id}
+        />
         <div className="article-body">
           <div className="meta">
             <span className="chip">{formatPostDate(post.date)}</span>
@@ -355,10 +432,12 @@ function PostImage({
   imageUrl,
   alt,
   className,
+  placeholderKey,
 }: {
   imageUrl?: string
   alt: string
   className: string
+  placeholderKey: number | string
 }) {
   if (imageUrl) {
     return (
@@ -368,11 +447,36 @@ function PostImage({
     )
   }
 
+  const placeholderImage = getPlaceholderImage(placeholderKey)
+
+  if (placeholderImage) {
+    return (
+      <div className={`${className} thumb-placeholder`}>
+        <img src={placeholderImage} alt="" loading="lazy" />
+      </div>
+    )
+  }
+
   return (
     <div className={`${className} thumb-placeholder`}>
       <span>RE:VIVE</span>
     </div>
   )
+}
+
+function getPlaceholderImage(key: number | string): string | undefined {
+  if (placeholderImages.length === 0) {
+    return undefined
+  }
+
+  const value = String(key)
+  let hash = 0
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0
+  }
+
+  return placeholderImages[hash % placeholderImages.length]
 }
 
 function StatusCard({ title, text, tone }: { title: string; text: string; tone?: 'error' }) {

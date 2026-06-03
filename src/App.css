@@ -4,6 +4,69 @@
   flex-direction: column;
 }
 
+.tap-flare-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.tap-flare {
+  position: absolute;
+  left: var(--tap-x);
+  top: var(--tap-y);
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.98) 0 18%, rgba(222, 255, 159, 0.9) 19% 38%, rgba(145, 229, 91, 0.46) 39% 62%, transparent 72%),
+    radial-gradient(circle, rgba(185, 248, 128, 0.44), transparent 62%);
+  box-shadow:
+    0 0 0 0 rgba(255, 255, 255, 0.95),
+    0 0 18px rgba(216, 255, 143, 0.7),
+    0 0 26px rgba(126, 220, 82, 0.38);
+  translate: -50% -50%;
+  animation: tap-flare-core 0.76s cubic-bezier(0.18, 0.78, 0.24, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.tap-flare::before,
+.tap-flare::after {
+  content: '';
+  position: absolute;
+  inset: 50%;
+  border-radius: 999px;
+  translate: -50% -50%;
+  pointer-events: none;
+}
+
+.tap-flare::before {
+  width: 18px;
+  height: 18px;
+  border: 3px solid rgba(255, 255, 255, 0.86);
+  box-shadow:
+    0 0 0 4px rgba(201, 233, 130, 0.28),
+    0 0 20px rgba(230, 255, 190, 0.68);
+  animation: tap-flare-ring 0.76s cubic-bezier(0.16, 0.84, 0.28, 1) forwards;
+}
+
+.tap-flare::after {
+  width: 7px;
+  height: 7px;
+  background: white;
+  box-shadow:
+    0 -22px 0 -2px rgba(255, 255, 255, 0.9),
+    16px -16px 0 -2px rgba(222, 255, 159, 0.86),
+    22px 0 0 -2px rgba(177, 241, 113, 0.82),
+    16px 16px 0 -2px rgba(211, 255, 151, 0.78),
+    0 22px 0 -2px rgba(255, 255, 255, 0.82),
+    -16px 16px 0 -2px rgba(154, 226, 91, 0.76),
+    -22px 0 0 -2px rgba(222, 255, 159, 0.8),
+    -16px -16px 0 -2px rgba(184, 246, 119, 0.78);
+  animation: tap-flare-sparks 0.76s cubic-bezier(0.18, 0.8, 0.24, 1) forwards;
+}
+
 .route-stage {
   flex: 1;
   animation: route-enter 0.32s ease both;
@@ -687,6 +750,51 @@
 
   70% {
     translate: 0 3px;
+  }
+}
+
+@keyframes tap-flare-core {
+  0% {
+    opacity: 0;
+    transform: scale(0.25);
+  }
+
+  18% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+@keyframes tap-flare-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.35);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(3.6);
+  }
+}
+
+@keyframes tap-flare-sparks {
+  0% {
+    opacity: 0;
+    transform: scale(0.25) rotate(0deg);
+  }
+
+  24% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.35) rotate(18deg);
   }
 }
 
