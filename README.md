@@ -1,5 +1,14 @@
 # React + TypeScript + Vite
 
+## GitHub Pages
+
+This project is configured to deploy `dist` to GitHub Pages with GitHub Actions.
+After pushing to `master`, open GitHub Settings -> Pages and set Source to
+GitHub Actions.
+
+Expected public URL:
+https://8944-10zen.github.io/nobimuso-revive/
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
