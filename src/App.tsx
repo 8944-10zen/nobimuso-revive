@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { Heart, Sparkles, Star } from 'lucide-react'
 import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import './App.css'
+import heroLogo from './assets/nobilogo-hero.png'
+import headerLogo from './assets/nobilogo-header.png'
 import { formatPostDate, stripHtml } from './lib/format'
 import { fetchPost, fetchPosts, getAuthorName, getFeaturedImage, type WpPost, type WpPostPage } from './lib/wpApi'
 
@@ -33,18 +36,8 @@ function SiteHeader() {
     <header className="site-header">
       <div className="page header-inner">
         <Link className="brand" to="/">
-          <span className="brand-mark" aria-hidden="true">
-            RE
-          </span>
-          <span className="brand-name">
-            <span className="brand-main">nobimuso</span>
-            <span className="brand-sub">濃尾無双RE:VIVE</span>
-          </span>
+          <img className="brand-logo" src={headerLogo} alt="濃尾無双RE:VIVE" width="240" height="130" />
         </Link>
-        <nav className="simple-nav" aria-label="メインナビゲーション">
-          <Link to="/">記事一覧</Link>
-          <a href="#latest">最新記事</a>
-        </nav>
       </div>
     </header>
   )
@@ -83,23 +76,13 @@ function HomePage() {
     <main>
       <section className="hero">
         <div className="page hero-box">
-          <div>
-            <span className="label">濃尾無双RE:VIVE</span>
-            <h1 className="hero-title">濃尾無双RE:VIVE</h1>
+          <HeroDecor />
+          <div className="hero-content">
+            <h1 className="sr-only">濃尾無双RE:VIVE</h1>
+            <img className="hero-logo" src={heroLogo} alt="濃尾無双RE:VIVE" width="500" height="270" />
             <p className="hero-lead">
               虎子たちはここに集まっていたんだね
             </p>
-            <div className="hero-actions">
-              <a className="btn btn-primary" href="#latest">
-                最新記事を見る
-              </a>
-              <Link className="btn btn-secondary" to="/post/2198">
-                記事ID 2198
-              </Link>
-            </div>
-          </div>
-          <div className="mascot-card" aria-hidden="true">
-            <div className="mascot" />
           </div>
         </div>
       </section>
@@ -109,13 +92,25 @@ function HomePage() {
           <div className="section-head">
             <div>
               <h2 className="section-title">最新記事</h2>
-              <p className="section-desc">虎子たちの記録を、新しい順に並べています。</p>
             </div>
           </div>
           <PostList currentPage={currentPage} state={state} onPageChange={setCurrentPage} />
         </div>
       </section>
     </main>
+  )
+}
+
+function HeroDecor() {
+  return (
+    <div className="hero-decor" aria-hidden="true">
+      <Star className="hero-charm charm-left-1 charm-pink" fill="currentColor" />
+      <Sparkles className="hero-charm charm-left-2 charm-orange" />
+      <Heart className="hero-charm charm-left-3 charm-blue" fill="currentColor" />
+      <Star className="hero-charm charm-right-1 charm-blue" fill="currentColor" />
+      <Sparkles className="hero-charm charm-right-2 charm-green" />
+      <Heart className="hero-charm charm-right-3 charm-pink" fill="currentColor" />
+    </div>
   )
 }
 
@@ -393,8 +388,8 @@ function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="page footer-inner">
-        <span className="footer-logo">濃尾無双RE:VIVE</span>
-        <span>虎子たちはここに集まっていたんだね</span>
+        <img className="footer-logo" src={headerLogo} alt="濃尾無双RE:VIVE" width="240" height="130" />
+        <span className="copyright">© 2026 濃尾無双RE:VIVE</span>
       </div>
     </footer>
   )
