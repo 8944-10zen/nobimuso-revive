@@ -1,12 +1,41 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type Dispatch,
+  type FormEvent,
+  type ReactNode,
+  type SetStateAction,
+} from 'react'
 import DOMPurify from 'dompurify'
+import { LogIn, LogOut, PenLine, Trash2, UserRound, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import './App.css'
 import headerLogo from './assets/nobilogo-header.png'
 import { formatPostDate, stripHtml } from './lib/format'
-import { fetchPost, fetchPosts, getAuthorName, getFeaturedImage, type WpPost, type WpPostPage } from './lib/wpApi'
+import {
+  WpApiError,
+  createMicropost,
+  deleteWpPost,
+  fetchMicropostTagId,
+  fetchPost,
+  fetchPosts,
+  getAuthorName,
+  getFeaturedImage,
+  getOrCreateMicropostTagId,
+  verifyWpCredentials,
+  type WpCredentials,
+  type WpPost,
+  type WpPostPage,
+} from './lib/wpApi'
 
 const POSTS_PER_PAGE = 7
+const MICROPOST_MAX_LENGTH = 140
+const MICROPOST_CREATED_EVENT = 'micropost-created'
+const MICROPOST_DELETED_EVENT = 'micropost-deleted'
 const placeholderImages = Object.values(
   import.meta.glob<string>('./assets/placeholders/*.{png,jpg,jpeg,webp,avif}', {
     eager: true,
@@ -26,20 +55,60 @@ type TapFlare = {
   y: number
 }
 
+type WpSession = {
+  credentials: WpCredentials | null
+  setCredentials: Dispatch<SetStateAction<WpCredentials | null>>
+  currentUserId: number | null
+  setCurrentUserId: Dispatch<SetStateAction<number | null>>
+  currentUserName: string
+  setCurrentUserName: Dispatch<SetStateAction<string>>
+  clearCredentials: () => void
+  micropostTagId: number | null
+  setMicropostTagId: Dispatch<SetStateAction<number | null>>
+}
+
+function ModalPortal({ children }: { children: ReactNode }) {
+  return createPortal(children, document.body)
+}
+
 function App() {
   const location = useLocation()
+  const [credentials, setCredentials] = useState<WpCredentials | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null)
+  const [currentUserName, setCurrentUserName] = useState('')
+  const [micropostTagId, setMicropostTagId] = useState<number | null>(null)
+
+  function clearCredentials() {
+    setCredentials(null)
+    setCurrentUserId(null)
+    setCurrentUserName('')
+    setMicropostTagId(null)
+  }
+
+  const session = {
+    credentials,
+    setCredentials,
+    currentUserId,
+    setCurrentUserId,
+    currentUserName,
+    setCurrentUserName,
+    clearCredentials,
+    micropostTagId,
+    setMicropostTagId,
+  }
 
   return (
     <div className="app-shell">
       <TapFlareLayer />
-      <SiteHeader />
+      <SiteHeader session={session} />
       <div className="route-stage" key={location.pathname}>
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/post/:id" element={<PostPage />} />
+          <Route path="/" element={<HomePage session={session} />} />
+          <Route path="/post/:id" element={<PostPage session={session} />} />
         </Routes>
       </div>
       <SiteFooter />
+      <MicropostComposer session={session} />
     </div>
   )
 }
@@ -90,20 +159,134 @@ function TapFlareLayer() {
   )
 }
 
-function SiteHeader() {
+function SiteHeader({ session }: { session: WpSession }) {
   return (
     <header className="site-header">
       <div className="page header-inner">
         <Link className="brand" to="/">
           <img className="brand-logo" src={headerLogo} alt="濃尾無双RE:VIVE" width="240" height="130" />
         </Link>
+        <HeaderAuthControls session={session} />
       </div>
     </header>
   )
 }
 
-function HomePage() {
+function HeaderAuthControls({ session }: { session: WpSession }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [username, setUsername] = useState('')
+  const [applicationPassword, setApplicationPassword] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
+  const isLoggedIn = Boolean(session.credentials && session.currentUserId)
+
+  function handleLogout() {
+    session.clearCredentials()
+    setApplicationPassword('')
+    setAuthError('')
+    setIsOpen(false)
+  }
+
+  async function handleAuthenticate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setAuthError('')
+    setAuthLoading(true)
+
+    const nextCredentials = {
+      username: username.trim(),
+      applicationPassword,
+    }
+
+    if (!nextCredentials.username || !nextCredentials.applicationPassword) {
+      setAuthError('ユーザー名とアプリケーションパスワードを入力してください。')
+      setAuthLoading(false)
+      return
+    }
+
+    try {
+      const user = await verifyWpCredentials(nextCredentials)
+      session.setCredentials(nextCredentials)
+      session.setCurrentUserId(user.id)
+      session.setCurrentUserName(user.name)
+      setApplicationPassword('')
+      setIsOpen(false)
+    } catch (error) {
+      setAuthError(getFriendlyErrorMessage(error))
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  return (
+    <div className="header-auth">
+      <span className="header-auth-status">
+        <UserRound size={15} aria-hidden="true" />
+        {isLoggedIn ? `${session.currentUserName || 'ログイン中'}` : '未ログイン'}
+      </span>
+      {isLoggedIn ? (
+        <button className="header-auth-button" type="button" onClick={handleLogout}>
+          <LogOut size={15} aria-hidden="true" />
+          ログアウト
+        </button>
+      ) : (
+        <button className="header-auth-button" type="button" onClick={() => setIsOpen(true)}>
+          <LogIn size={15} aria-hidden="true" />
+          ログイン
+        </button>
+      )}
+
+      {isOpen && (
+        <ModalPortal>
+          <div className="composer-modal" role="presentation">
+            <div className="composer-panel auth-panel" role="dialog" aria-modal="true" aria-labelledby="header-auth-title">
+              <button className="composer-close" type="button" aria-label="閉じる" onClick={() => setIsOpen(false)}>
+                <X size={20} aria-hidden="true" />
+              </button>
+              <form className="composer-form" onSubmit={handleAuthenticate}>
+                <h2 id="header-auth-title">WordPress認証</h2>
+                <label className="composer-field">
+                  <span>ユーザー名</span>
+                  <input
+                    type="text"
+                    autoComplete="username"
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                  />
+                </label>
+                <label className="composer-field">
+                  <span>アプリケーションパスワード</span>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={applicationPassword}
+                    onChange={(event) => setApplicationPassword(event.target.value)}
+                  />
+                </label>
+                {authError && (
+                  <p className="composer-message composer-message-error" role="alert">
+                    {authError}
+                  </p>
+                )}
+                <div className="composer-actions">
+                  <button className="composer-secondary-button" type="button" onClick={() => setIsOpen(false)}>
+                    キャンセル
+                  </button>
+                  <button className="composer-primary-button" type="submit" disabled={authLoading}>
+                    {authLoading ? '認証中...' : 'ログイン'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+    </div>
+  )
+}
+
+function HomePage({ session }: { session: WpSession }) {
   const [currentPage, setCurrentPage] = useState(1)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [state, setState] = useState<AsyncState<WpPostPage>>({ status: 'loading' })
 
   useEffect(() => {
@@ -127,7 +310,23 @@ function HomePage() {
     return () => {
       ignore = true
     }
-  }, [currentPage])
+  }, [currentPage, refreshKey])
+
+  useEffect(() => {
+    function refreshPosts() {
+      setState({ status: 'loading' })
+      setCurrentPage(1)
+      setRefreshKey((value) => value + 1)
+    }
+
+    window.addEventListener(MICROPOST_CREATED_EVENT, refreshPosts)
+    window.addEventListener(MICROPOST_DELETED_EVENT, refreshPosts)
+
+    return () => {
+      window.removeEventListener(MICROPOST_CREATED_EVENT, refreshPosts)
+      window.removeEventListener(MICROPOST_DELETED_EVENT, refreshPosts)
+    }
+  }, [])
 
   function handlePageChange(page: number) {
     setState({ status: 'loading' })
@@ -141,7 +340,7 @@ function HomePage() {
           <div className="timeline-head">
             <h1>最新記事</h1>
           </div>
-          <PostList currentPage={currentPage} state={state} onPageChange={handlePageChange} />
+          <PostList currentPage={currentPage} state={state} session={session} onPageChange={handlePageChange} />
         </div>
       </section>
     </main>
@@ -151,12 +350,17 @@ function HomePage() {
 function PostList({
   currentPage,
   state,
+  session,
   onPageChange,
 }: {
   currentPage: number
   state: AsyncState<WpPostPage>
+  session: WpSession
   onPageChange: (page: number) => void
 }) {
+  const micropostTagId = useMicropostTagId(session)
+  const { currentUserId } = session
+
   if (state.status === 'loading') {
     return <LoadingIndicator />
   }
@@ -173,7 +377,20 @@ function PostList({
     <>
       <div className="post-feed">
         {state.data.posts.map((post, index) => (
-          <PostCard key={post.id} post={post} index={index} />
+          (() => {
+            const isMicropost = Boolean(micropostTagId && post.tags?.includes(micropostTagId))
+
+            return (
+              <PostCard
+                key={post.id}
+                post={post}
+                index={index}
+                isMicropost={isMicropost}
+                canDelete={Boolean(currentUserId && isMicropost && post.author === currentUserId)}
+                session={session}
+              />
+            )
+          })()
         ))}
       </div>
       <Pagination
@@ -184,6 +401,36 @@ function PostList({
       />
     </>
   )
+}
+
+function useMicropostTagId(session: WpSession): number | null {
+  const { micropostTagId, setMicropostTagId } = session
+
+  useEffect(() => {
+    if (micropostTagId) {
+      return
+    }
+
+    let ignore = false
+
+    fetchMicropostTagId()
+      .then((tagId) => {
+        if (!ignore) {
+          setMicropostTagId(tagId)
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setMicropostTagId(null)
+        }
+      })
+
+    return () => {
+      ignore = true
+    }
+  }, [micropostTagId, setMicropostTagId])
+
+  return micropostTagId
 }
 
 function Pagination({
@@ -284,7 +531,19 @@ function getVisiblePages(currentPage: number, totalPages: number): number[] {
   return [currentPage - 1, currentPage, currentPage + 1]
 }
 
-function PostCard({ post, index = 0 }: { post: WpPost; index?: number }) {
+function PostCard({
+  post,
+  index = 0,
+  isMicropost,
+  canDelete,
+  session,
+}: {
+  post: WpPost
+  index?: number
+  isMicropost: boolean
+  canDelete: boolean
+  session: WpSession
+}) {
   const authorName = getAuthorName(post)
   const title = stripHtml(post.title.rendered)
   const bodyText = stripHtml(post.content.rendered) || stripHtml(post.excerpt.rendered)
@@ -301,16 +560,20 @@ function PostCard({ post, index = 0 }: { post: WpPost; index?: number }) {
         <div className="meta post-meta">
           <span>{formatPostDate(post.date)}</span>
         </div>
-        <h3 className="post-title">{title}</h3>
+        {!isMicropost && <h3 className="post-title">{title}</h3>}
         {excerpt && <p className="post-excerpt">{excerpt}</p>}
         {hasMore && <span className="read-more-button">続きを読む</span>}
       </div>
+      {canDelete && <DeleteMicropostButton postId={post.id} postLabel={excerpt || title} session={session} />}
     </>
   )
 
-  if (!hasMore) {
+  if (!hasMore || isMicropost) {
     return (
-      <article className="post-card" style={cardStyle}>
+      <article
+        className={`post-card ${hasMore ? 'has-read-more' : ''} ${isMicropost ? 'is-micropost' : ''}`}
+        style={cardStyle}
+      >
         {cardContent}
       </article>
     )
@@ -327,8 +590,183 @@ function PostCard({ post, index = 0 }: { post: WpPost; index?: number }) {
   )
 }
 
-function PostPage() {
+type DeleteView = 'closed' | 'auth' | 'confirm'
+
+function DeleteMicropostButton({
+  postId,
+  postLabel,
+  session,
+}: {
+  postId: number
+  postLabel: string
+  session: WpSession
+}) {
+  const [view, setView] = useState<DeleteView>('closed')
+  const [username, setUsername] = useState('')
+  const [applicationPassword, setApplicationPassword] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [deleteError, setDeleteError] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  function openDeleteFlow() {
+    setAuthError('')
+    setDeleteError('')
+    setView(session.credentials ? 'confirm' : 'auth')
+  }
+
+  async function handleAuthenticate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setAuthError('')
+    setAuthLoading(true)
+
+    const nextCredentials = {
+      username: username.trim(),
+      applicationPassword,
+    }
+
+    if (!nextCredentials.username || !nextCredentials.applicationPassword) {
+      setAuthError('ユーザー名とアプリケーションパスワードを入力してください。')
+      setAuthLoading(false)
+      return
+    }
+
+    try {
+      const user = await verifyWpCredentials(nextCredentials)
+      session.setCredentials(nextCredentials)
+      session.setCurrentUserId(user.id)
+      session.setCurrentUserName(user.name)
+      setApplicationPassword('')
+      setView('confirm')
+    } catch (error) {
+      setAuthError(getFriendlyErrorMessage(error))
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  async function handleDelete() {
+    const currentCredentials = session.credentials
+
+    if (!currentCredentials) {
+      setView('auth')
+      return
+    }
+
+    setDeleteError('')
+    setIsDeleting(true)
+
+    try {
+      const user = await verifyWpCredentials(currentCredentials)
+      session.setCurrentUserId(user.id)
+      session.setCurrentUserName(user.name)
+      await deleteWpPost(postId, currentCredentials)
+      setView('closed')
+      window.dispatchEvent(new Event(MICROPOST_DELETED_EVENT))
+    } catch (error) {
+      if (error instanceof WpApiError && error.kind === 'auth') {
+        session.clearCredentials()
+        setAuthError('認証情報が無効になりました。もう一度認証してください。')
+        setView('auth')
+        return
+      }
+
+      setDeleteError(getFriendlyErrorMessage(error))
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <>
+      <button
+        className="micropost-delete-button"
+        type="button"
+        aria-label="この短文投稿を削除する"
+        onClick={openDeleteFlow}
+      >
+        <Trash2 size={16} aria-hidden="true" />
+        削除
+      </button>
+
+      {view !== 'closed' && (
+        <ModalPortal>
+        <div className="composer-modal" role="presentation">
+          <div
+            className="composer-panel delete-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={view === 'auth' ? `delete-auth-title-${postId}` : `delete-confirm-title-${postId}`}
+          >
+            <button className="composer-close" type="button" aria-label="閉じる" onClick={() => setView('closed')}>
+              <X size={20} aria-hidden="true" />
+            </button>
+
+            {view === 'auth' ? (
+              <form className="composer-form" onSubmit={handleAuthenticate}>
+                <h2 id={`delete-auth-title-${postId}`}>WordPress認証</h2>
+                <label className="composer-field">
+                  <span>ユーザー名</span>
+                  <input
+                    type="text"
+                    autoComplete="username"
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                  />
+                </label>
+                <label className="composer-field">
+                  <span>アプリケーションパスワード</span>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={applicationPassword}
+                    onChange={(event) => setApplicationPassword(event.target.value)}
+                  />
+                </label>
+                {authError && (
+                  <p className="composer-message composer-message-error" role="alert">
+                    {authError}
+                  </p>
+                )}
+                <div className="composer-actions">
+                  <button className="composer-secondary-button" type="button" onClick={() => setView('closed')}>
+                    キャンセル
+                  </button>
+                  <button className="composer-primary-button" type="submit" disabled={authLoading}>
+                    {authLoading ? '認証中...' : '認証する'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="composer-form">
+                <h2 id={`delete-confirm-title-${postId}`}>短文投稿を削除</h2>
+                <p className="delete-confirm-text">{postLabel || `投稿ID ${postId}`}</p>
+                {deleteError && (
+                  <p className="composer-message composer-message-error" role="alert">
+                    {deleteError}
+                  </p>
+                )}
+                <div className="composer-actions">
+                  <button className="composer-secondary-button" type="button" onClick={() => setView('closed')}>
+                    キャンセル
+                  </button>
+                  <button className="composer-danger-button" type="button" disabled={isDeleting} onClick={handleDelete}>
+                    {isDeleting ? '削除中...' : '削除する'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        </ModalPortal>
+      )}
+    </>
+  )
+}
+
+function PostPage({ session }: { session: WpSession }) {
   const { id } = useParams()
+  const micropostTagId = useMicropostTagId(session)
   const [state, setState] = useState<AsyncState<WpPost>>({ status: 'loading' })
 
   useEffect(() => {
@@ -373,13 +811,15 @@ function PostPage() {
       <div className="page article-shell">
         {state.status === 'loading' && <LoadingIndicator />}
         {state.status === 'error' && <StatusCard title="記事を取得できませんでした" text={state.error} tone="error" />}
-        {state.status === 'success' && <Article post={state.data} />}
+        {state.status === 'success' && (
+          <Article post={state.data} isMicropost={Boolean(micropostTagId && state.data.tags?.includes(micropostTagId))} />
+        )}
       </div>
     </main>
   )
 }
 
-function Article({ post }: { post: WpPost }) {
+function Article({ post, isMicropost }: { post: WpPost; isMicropost: boolean }) {
   const image = getFeaturedImage(post)
   const authorName = getAuthorName(post)
   const title = useMemo(() => stripHtml(post.title.rendered), [post.title.rendered])
@@ -401,7 +841,7 @@ function Article({ post }: { post: WpPost }) {
           <div className="meta">
             <span className="chip">{formatPostDate(post.date)}</span>
           </div>
-          <h1 className="article-title">{title}</h1>
+          {!isMicropost && <h1 className="article-title">{title}</h1>}
           <div className="article-content" dangerouslySetInnerHTML={{ __html: sanitizedContent }} />
         </div>
       </article>
@@ -477,13 +917,293 @@ function StatusCard({ title, text, tone }: { title: string; text: string; tone?:
 
 function LoadingIndicator() {
   return (
-    <div className="loading-modal" role="dialog" aria-modal="true" aria-label="記事を読み込み中">
-      <div className="loading-panel" role="status" aria-live="polite">
-        <span className="loading-spinner" aria-hidden="true" />
-        <span>読み込み中...</span>
+    <ModalPortal>
+      <div className="loading-modal" role="dialog" aria-modal="true" aria-label="記事を読み込み中">
+        <div className="loading-panel" role="status" aria-live="polite">
+          <span className="loading-spinner" aria-hidden="true" />
+          <span>読み込み中...</span>
+        </div>
       </div>
-    </div>
+    </ModalPortal>
   )
+}
+
+type ComposerView = 'closed' | 'auth' | 'compose'
+
+function MicropostComposer({ session }: { session: WpSession }) {
+  const [view, setView] = useState<ComposerView>('closed')
+  const [username, setUsername] = useState('')
+  const [applicationPassword, setApplicationPassword] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
+  const [content, setContent] = useState('')
+  const [postError, setPostError] = useState('')
+  const [postSuccess, setPostSuccess] = useState('')
+  const [isPosting, setIsPosting] = useState(false)
+
+  const characterCount = Array.from(content).length
+  const validationError = getMicropostValidationError(content)
+  const canPost = !validationError && !isPosting
+
+  useEffect(() => {
+    if (view === 'closed') {
+      return
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setView('closed')
+      }
+    }
+
+    window.addEventListener('keydown', closeOnEscape)
+
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [view])
+
+  async function openComposer() {
+    setAuthError('')
+    setPostError('')
+    setPostSuccess('')
+
+    if (!session.credentials) {
+      setView('auth')
+      return
+    }
+
+    try {
+      const user = await verifyWpCredentials(session.credentials)
+      session.setCurrentUserId(user.id)
+      session.setCurrentUserName(user.name)
+      setView('compose')
+    } catch (error) {
+      if (error instanceof WpApiError && error.kind === 'auth') {
+        session.clearCredentials()
+        setAuthError('認証情報が無効になりました。もう一度認証してください。')
+        setView('auth')
+        return
+      }
+
+      setPostError(getFriendlyErrorMessage(error))
+      setView('compose')
+    }
+  }
+
+  async function handleAuthenticate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setAuthError('')
+    setAuthLoading(true)
+
+    const nextCredentials = {
+      username: username.trim(),
+      applicationPassword,
+    }
+
+    if (!nextCredentials.username || !nextCredentials.applicationPassword) {
+      setAuthError('ユーザー名とアプリケーションパスワードを入力してください。')
+      setAuthLoading(false)
+      return
+    }
+
+    try {
+      const user = await verifyWpCredentials(nextCredentials)
+      session.setCredentials(nextCredentials)
+      session.setCurrentUserId(user.id)
+      session.setCurrentUserName(user.name)
+      setApplicationPassword('')
+      setView('compose')
+    } catch (error) {
+      setAuthError(getFriendlyErrorMessage(error))
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setPostError('')
+    setPostSuccess('')
+
+    const currentCredentials = session.credentials
+
+    if (!currentCredentials) {
+      setView('auth')
+      return
+    }
+
+    if (validationError) {
+      setPostError(validationError)
+      return
+    }
+
+    setIsPosting(true)
+
+    try {
+      const user = await verifyWpCredentials(currentCredentials)
+      session.setCurrentUserId(user.id)
+      session.setCurrentUserName(user.name)
+
+      const tagId = session.micropostTagId ?? (await getOrCreateMicropostTagId(currentCredentials))
+      session.setMicropostTagId(tagId)
+
+      await createMicropost(content, tagId, currentCredentials)
+      setContent('')
+      setPostSuccess('短文を投稿しました。')
+      window.dispatchEvent(new Event(MICROPOST_CREATED_EVENT))
+    } catch (error) {
+      if (error instanceof WpApiError && error.kind === 'auth') {
+        session.clearCredentials()
+        setView('auth')
+        setAuthError(error.message)
+        return
+      }
+
+      setPostError(getFriendlyErrorMessage(error))
+    } finally {
+      setIsPosting(false)
+    }
+  }
+
+  return (
+    <>
+      <button className="micropost-fab" type="button" aria-label="短文を投稿する" onClick={openComposer}>
+        <PenLine size={25} aria-hidden="true" />
+      </button>
+
+      {view !== 'closed' && (
+        <ModalPortal>
+        <div className="composer-modal" role="presentation">
+          <div
+            className="composer-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={view === 'auth' ? 'auth-title' : 'composer-title'}
+          >
+            <button className="composer-close" type="button" aria-label="閉じる" onClick={() => setView('closed')}>
+              <X size={20} aria-hidden="true" />
+            </button>
+
+            {view === 'auth' ? (
+              <form className="composer-form" onSubmit={handleAuthenticate}>
+                <h2 id="auth-title">WordPress認証</h2>
+                <label className="composer-field">
+                  <span>ユーザー名</span>
+                  <input
+                    type="text"
+                    autoComplete="username"
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                  />
+                </label>
+                <label className="composer-field">
+                  <span>アプリケーションパスワード</span>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={applicationPassword}
+                    onChange={(event) => setApplicationPassword(event.target.value)}
+                  />
+                </label>
+                {authError && (
+                  <p className="composer-message composer-message-error" role="alert">
+                    {authError}
+                  </p>
+                )}
+                <div className="composer-actions">
+                  <button className="composer-secondary-button" type="button" onClick={() => setView('closed')}>
+                    キャンセル
+                  </button>
+                  <button className="composer-primary-button" type="submit" disabled={authLoading}>
+                    {authLoading ? '認証中...' : '認証する'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form className="composer-form" onSubmit={handleSubmit}>
+                <h2 id="composer-title">短文投稿</h2>
+                <label className="composer-field">
+                  <span className="sr-only">投稿本文</span>
+                  <textarea
+                    value={content}
+                    maxLength={MICROPOST_MAX_LENGTH * 4}
+                    rows={6}
+                    placeholder="いま書きたいこと"
+                    onChange={(event) => {
+                      setContent(event.target.value)
+                      setPostError('')
+                      setPostSuccess('')
+                    }}
+                  />
+                </label>
+                <div className="composer-count" aria-live="polite">
+                  {characterCount} / {MICROPOST_MAX_LENGTH}
+                </div>
+                {(postError || validationError) && (
+                  <p className="composer-message composer-message-error" role="alert">
+                    {postError || validationError}
+                  </p>
+                )}
+                {postSuccess && (
+                  <p className="composer-message composer-message-success" role="status">
+                    {postSuccess}
+                  </p>
+                )}
+                <div className="composer-actions">
+                  <button className="composer-secondary-button" type="button" onClick={() => setView('closed')}>
+                    閉じる
+                  </button>
+                  <button className="composer-primary-button" type="submit" disabled={!canPost}>
+                    {isPosting ? '投稿中...' : '投稿する'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+        </ModalPortal>
+      )}
+    </>
+  )
+}
+
+function getMicropostValidationError(value: string): string {
+  const characterCount = Array.from(value).length
+
+  if (!value.trim()) {
+    return '本文を入力してください。'
+  }
+
+  if (characterCount > MICROPOST_MAX_LENGTH) {
+    return `${MICROPOST_MAX_LENGTH}文字以内で入力してください。`
+  }
+
+  if (/[<>]/.test(value) || /<\/?[a-z][\s\S]*>/i.test(value)) {
+    return 'HTMLタグとして解釈される可能性のある文字は投稿できません。'
+  }
+
+  if (hasBlockedControlCharacter(value)) {
+    return '使用できない制御文字が含まれています。'
+  }
+
+  return ''
+}
+
+function hasBlockedControlCharacter(value: string): boolean {
+  return Array.from(value).some((character) => {
+    const code = character.charCodeAt(0)
+
+    return code === 127 || (code < 32 && code !== 9 && code !== 10 && code !== 13)
+  })
+}
+
+function getFriendlyErrorMessage(error: unknown): string {
+  if (error instanceof WpApiError) {
+    return error.message
+  }
+
+  return '処理に失敗しました。時間を置いて再度お試しください。'
 }
 
 function SiteFooter() {
