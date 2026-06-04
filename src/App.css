@@ -234,6 +234,58 @@
   font-weight: 900;
 }
 
+.post-filter {
+  width: min(420px, 100%);
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin: 14px auto 0;
+  padding: 4px;
+  border: 2px solid rgba(73, 177, 56, 0.2);
+  border-radius: 999px;
+  background: rgba(251, 255, 232, 0.78);
+  box-shadow: inset 0 2px 0 rgba(39, 112, 28, 0.08);
+}
+
+.post-filter-button {
+  min-width: 0;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #657452;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.15;
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.post-filter-button:hover {
+  color: var(--green-dark);
+  transform: translateY(-1px);
+}
+
+.post-filter-button[aria-pressed='true'] {
+  background: linear-gradient(#45c943, #149c2e);
+  color: white;
+  box-shadow: 0 3px 0 var(--green-dark);
+}
+
+.post-filter-button:focus-visible {
+  outline: 3px solid #8267e8;
+  outline-offset: 2px;
+}
+
 .post-feed {
   display: grid;
   gap: 24px;
@@ -446,6 +498,7 @@
   font-weight: 700;
   font-size: 14.5px;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .read-more-button {
@@ -1357,13 +1410,14 @@
 
   .pagination-controls {
     gap: 6px;
-    overflow-x: auto;
-    justify-content: flex-start;
-    padding-bottom: 4px;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    justify-content: center;
+    padding-bottom: 0;
   }
 
   .pagination-pages {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
   }
 
   .pagination-button,
@@ -1376,6 +1430,408 @@
   .footer-inner {
     display: grid;
     justify-items: start;
+  }
+}
+
+@media (max-width: 430px) {
+  .page,
+  .timeline-page,
+  .article-shell {
+    width: calc(100% - 20px);
+  }
+
+  .site-header {
+    border-bottom-width: 3px;
+  }
+
+  .header-inner {
+    min-height: 66px;
+    height: auto;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 0;
+  }
+
+  .brand-logo {
+    width: clamp(88px, 27vw, 104px);
+  }
+
+  .header-auth {
+    position: static;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .header-auth-status {
+    max-width: min(142px, 100%);
+    min-height: 27px;
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .header-auth-button {
+    min-height: 30px;
+    padding: 0 9px;
+    font-size: 11px;
+  }
+
+  .section {
+    padding: 14px 0 24px;
+  }
+
+  .timeline-head {
+    margin-bottom: 14px;
+    padding: 0;
+  }
+
+  .timeline-head h1 {
+    font-size: 18px;
+  }
+
+  .post-filter {
+    width: 100%;
+    min-height: 40px;
+    margin-top: 12px;
+  }
+
+  .post-filter-button {
+    padding: 4px 5px;
+    font-size: 11px;
+  }
+
+  .post-feed {
+    gap: 18px;
+  }
+
+  .post-card {
+    min-height: 0;
+    padding: 52px 13px 18px;
+    border-width: 2px;
+    border-radius: 12px;
+    box-shadow: 0 7px 0 rgba(39, 112, 28, 0.16);
+  }
+
+  .post-card.has-read-more {
+    padding-bottom: 58px;
+  }
+
+  .post-card.is-micropost {
+    padding-bottom: 62px;
+  }
+
+  .post-card::before,
+  .article-card::before {
+    left: 16px;
+    right: 16px;
+    background-size: 28px 18px;
+  }
+
+  .card-tape {
+    width: 86px;
+    height: 24px;
+  }
+
+  .card-tape-top {
+    right: -8px;
+  }
+
+  .card-tape-bottom {
+    left: -8px;
+    width: 82px;
+    height: 23px;
+  }
+
+  .author-pill {
+    top: 38px;
+    left: 12px;
+    max-width: calc(100% - 24px);
+    min-height: 28px;
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+
+  .post-meta {
+    justify-content: flex-end;
+    padding-left: 42%;
+    font-size: 12px;
+  }
+
+  .post-title {
+    font-size: 16px;
+    line-height: 1.45;
+  }
+
+  .post-excerpt {
+    font-size: 14px;
+    line-height: 1.62;
+  }
+
+  .read-more-button {
+    right: 0;
+    bottom: -39px;
+    min-height: 32px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .micropost-delete-button {
+    right: 12px;
+    bottom: 14px;
+    min-height: 32px;
+    padding: 5px 10px;
+  }
+
+  .pagination-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 7px;
+    overflow-x: visible;
+    padding-bottom: 0;
+  }
+
+  .pagination-pages {
+    order: 0;
+    width: auto;
+    flex: 0 1 auto;
+  }
+
+  .pagination-button,
+  .pagination-page {
+    min-width: 38px;
+    min-height: 38px;
+    border-width: 2px;
+    padding: 0 9px;
+    box-shadow: 0 3px 0 rgba(37, 132, 29, 0.2);
+  }
+
+  .article-page {
+    padding: 22px 0 52px;
+  }
+
+  .article-card {
+    padding: 52px 11px 18px;
+    border-width: 2px;
+    border-radius: 12px;
+    box-shadow: 0 8px 0 rgba(39, 112, 28, 0.18);
+  }
+
+  .article-cover {
+    min-height: 0;
+    border-width: 3px;
+    border-radius: 12px;
+  }
+
+  .article-body {
+    padding: 18px 7px 4px;
+  }
+
+  .article-body > .meta,
+  .article-body .meta {
+    justify-content: flex-start;
+    min-height: 0;
+  }
+
+  .article-author {
+    left: 12px;
+    max-width: calc(100% - 24px);
+  }
+
+  .article-title {
+    margin: 12px 0 16px;
+    font-size: 28px;
+    line-height: 1.14;
+  }
+
+  .article-content {
+    font-size: 15.5px;
+    line-height: 1.85;
+  }
+
+  .article-content h2,
+  .article-content h3 {
+    margin: 30px 0 12px;
+    padding: 10px 12px;
+    border-width: 3px;
+    border-radius: 14px;
+  }
+
+  .article-content h2 {
+    font-size: 20px;
+  }
+
+  .article-content h3 {
+    font-size: 18px;
+  }
+
+  .article-content img,
+  .article-content iframe,
+  .article-content video,
+  .article-content table,
+  .article-content pre {
+    max-width: 100%;
+  }
+
+  .article-content iframe,
+  .article-content video {
+    width: 100%;
+  }
+
+  .article-content table,
+  .article-content pre {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .article-content blockquote {
+    margin: 22px 0;
+    padding: 14px 15px;
+    border-radius: 14px;
+  }
+
+  .article-content figure {
+    margin: 24px 0;
+  }
+
+  .article-footer-nav {
+    gap: 10px;
+  }
+
+  .small-link-card,
+  .status-card {
+    border-width: 3px;
+    border-radius: 14px;
+    padding: 16px;
+  }
+
+  .status-card h2 {
+    font-size: 21px;
+  }
+
+  .composer-modal {
+    align-items: end;
+    padding: max(12px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+      max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  }
+
+  .composer-panel {
+    width: 100%;
+    max-height: calc(100svh - 24px);
+    padding: 26px 13px 18px;
+    border-width: 3px;
+    border-radius: 14px;
+  }
+
+  .composer-form {
+    gap: 13px;
+  }
+
+  .composer-form h2 {
+    font-size: 20px;
+  }
+
+  .composer-close {
+    top: 9px;
+    right: 9px;
+    width: 34px;
+    height: 34px;
+    border-width: 2px;
+  }
+
+  .composer-field input {
+    min-height: 44px;
+  }
+
+  .composer-field textarea {
+    min-height: 132px;
+  }
+
+  .composer-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .composer-primary-button,
+  .composer-secondary-button,
+  .composer-danger-button {
+    width: 100%;
+    min-height: 40px;
+    border-width: 2px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+
+  .micropost-fab {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: 54px;
+    height: 54px;
+    border-width: 3px;
+  }
+
+  .site-footer {
+    margin-top: 24px;
+    padding: 24px 0;
+  }
+
+  .footer-inner {
+    justify-items: center;
+    text-align: center;
+  }
+}
+
+@media (max-width: 374px) {
+  .page,
+  .timeline-page,
+  .article-shell {
+    width: calc(100% - 16px);
+  }
+
+  .brand-logo {
+    width: 82px;
+  }
+
+  .header-auth-status {
+    max-width: 118px;
+  }
+
+  .header-auth-button span,
+  .header-auth-status span {
+    min-width: 0;
+  }
+
+  .post-filter-button {
+    font-size: 10.5px;
+  }
+
+  .post-meta {
+    padding-left: 35%;
+  }
+
+  .article-title {
+    font-size: 25px;
+  }
+
+  .composer-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .pagination-controls {
+    gap: 6px;
+  }
+
+  .pagination-pages {
+    gap: 6px;
+  }
+
+  .pagination-button,
+  .pagination-page {
+    min-width: 35px;
+    min-height: 37px;
+    padding: 0 7px;
   }
 }
 

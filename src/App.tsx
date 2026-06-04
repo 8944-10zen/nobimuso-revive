@@ -15,7 +15,7 @@ import { createPortal } from 'react-dom'
 import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import './App.css'
 import headerLogo from './assets/nobilogo-header.png'
-import { formatPostDate, stripHtml } from './lib/format'
+import { formatPostDate, stripHtml, stripHtmlPreservingLineBreaks } from './lib/format'
 import {
   WpApiError,
   createMicropost,
@@ -28,6 +28,7 @@ import {
   getOrCreateMicropostTagId,
   verifyWpCredentials,
   type WpCredentials,
+  type WpPostFilter,
   type WpPost,
   type WpPostPage,
 } from './lib/wpApi'
@@ -286,31 +287,55 @@ function HeaderAuthControls({ session }: { session: WpSession }) {
 
 function HomePage({ session }: { session: WpSession }) {
   const [currentPage, setCurrentPage] = useState(1)
+  const [postFilter, setPostFilter] = useState<WpPostFilter>('all')
   const [refreshKey, setRefreshKey] = useState(0)
   const [state, setState] = useState<AsyncState<WpPostPage>>({ status: 'loading' })
+  const { micropostTagId, setMicropostTagId } = session
 
   useEffect(() => {
     let ignore = false
 
-    fetchPosts(currentPage, POSTS_PER_PAGE)
-      .then((page) => {
+    async function loadPosts() {
+      try {
+        let filterTagId = micropostTagId
+
+        if (postFilter !== 'all' && !filterTagId) {
+          filterTagId = await fetchMicropostTagId()
+
+          if (!ignore) {
+            setMicropostTagId(filterTagId)
+          }
+        }
+
+        if (postFilter !== 'all' && !filterTagId) {
+          if (!ignore) {
+            setState({ status: 'success', data: { posts: [], total: 0, totalPages: 1 } })
+          }
+
+          return
+        }
+
+        const page = await fetchPosts(currentPage, POSTS_PER_PAGE, postFilter, filterTagId)
+
         if (!ignore) {
           setState({ status: 'success', data: page })
         }
-      })
-      .catch((error: unknown) => {
+      } catch (error: unknown) {
         if (!ignore) {
           setState({
             status: 'error',
             error: error instanceof Error ? error.message : '記事を取得できませんでした。',
           })
         }
-      })
+      }
+    }
+
+    loadPosts()
 
     return () => {
       ignore = true
     }
-  }, [currentPage, refreshKey])
+  }, [currentPage, postFilter, refreshKey, micropostTagId, setMicropostTagId])
 
   useEffect(() => {
     function refreshPosts() {
@@ -333,29 +358,90 @@ function HomePage({ session }: { session: WpSession }) {
     setCurrentPage(page)
   }
 
+  function handleFilterChange(filter: WpPostFilter) {
+    if (filter === postFilter) {
+      return
+    }
+
+    setState({ status: 'loading' })
+    setCurrentPage(1)
+    setPostFilter(filter)
+  }
+
   return (
     <main>
       <section className="section timeline-section" id="latest">
         <div className="page timeline-page">
           <div className="timeline-head">
             <h1>最新記事</h1>
+            <PostFilterControls currentFilter={postFilter} onFilterChange={handleFilterChange} />
           </div>
-          <PostList currentPage={currentPage} state={state} session={session} onPageChange={handlePageChange} />
+          <PostList
+            currentPage={currentPage}
+            state={state}
+            session={session}
+            filter={postFilter}
+            onPageChange={handlePageChange}
+          />
         </div>
       </section>
     </main>
   )
 }
 
+const postFilterOptions: Array<{ value: WpPostFilter; label: string }> = [
+  { value: 'all', label: '全て表示' },
+  { value: 'microposts', label: '短文のみ' },
+  { value: 'articles', label: '記事のみ' },
+]
+
+function PostFilterControls({
+  currentFilter,
+  onFilterChange,
+}: {
+  currentFilter: WpPostFilter
+  onFilterChange: (filter: WpPostFilter) => void
+}) {
+  return (
+    <div className="post-filter" role="group" aria-label="投稿表示の切り替え">
+      {postFilterOptions.map((option) => (
+        <button
+          className="post-filter-button"
+          type="button"
+          key={option.value}
+          aria-pressed={option.value === currentFilter}
+          onClick={() => onFilterChange(option.value)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function getEmptyPostFilterText(filter: WpPostFilter): string {
+  if (filter === 'microposts') {
+    return '公開済みの短文投稿が見つかりませんでした。'
+  }
+
+  if (filter === 'articles') {
+    return '公開済みの記事が見つかりませんでした。'
+  }
+
+  return '公開済みの記事が見つかりませんでした。'
+}
+
 function PostList({
   currentPage,
   state,
   session,
+  filter,
   onPageChange,
 }: {
   currentPage: number
   state: AsyncState<WpPostPage>
   session: WpSession
+  filter: WpPostFilter
   onPageChange: (page: number) => void
 }) {
   const micropostTagId = useMicropostTagId(session)
@@ -370,7 +456,7 @@ function PostList({
   }
 
   if (state.data.posts.length === 0) {
-    return <StatusCard title="投稿がありません" text="公開済みの記事が見つかりませんでした。" />
+    return <StatusCard title="投稿がありません" text={getEmptyPostFilterText(filter)} />
   }
 
   return (
@@ -546,7 +632,8 @@ function PostCard({
 }) {
   const authorName = getAuthorName(post)
   const title = stripHtml(post.title.rendered)
-  const bodyText = stripHtml(post.content.rendered) || stripHtml(post.excerpt.rendered)
+  const stripPostText = isMicropost ? stripHtmlPreservingLineBreaks : stripHtml
+  const bodyText = stripPostText(post.content.rendered) || stripPostText(post.excerpt.rendered)
   const bodyCharacters = Array.from(bodyText)
   const hasMore = bodyCharacters.length > 140
   const excerpt = hasMore ? bodyCharacters.slice(0, 140).join('') : bodyText
@@ -1066,6 +1153,14 @@ function MicropostComposer({ session }: { session: WpSession }) {
     }
   }
 
+  function handleContentChange(value: string) {
+    const nextContent = limitMicropostContent(value)
+
+    setContent(nextContent)
+    setPostError('')
+    setPostSuccess('')
+  }
+
   return (
     <>
       <button className="micropost-fab" type="button" aria-label="短文を投稿する" onClick={openComposer}>
@@ -1127,14 +1222,9 @@ function MicropostComposer({ session }: { session: WpSession }) {
                   <span className="sr-only">投稿本文</span>
                   <textarea
                     value={content}
-                    maxLength={MICROPOST_MAX_LENGTH * 4}
                     rows={6}
                     placeholder="いま書きたいこと"
-                    onChange={(event) => {
-                      setContent(event.target.value)
-                      setPostError('')
-                      setPostSuccess('')
-                    }}
+                    onChange={(event) => handleContentChange(event.target.value)}
                   />
                 </label>
                 <div className="composer-count" aria-live="polite">
@@ -1166,6 +1256,10 @@ function MicropostComposer({ session }: { session: WpSession }) {
       )}
     </>
   )
+}
+
+function limitMicropostContent(value: string): string {
+  return Array.from(value).slice(0, MICROPOST_MAX_LENGTH).join('')
 }
 
 function getMicropostValidationError(value: string): string {

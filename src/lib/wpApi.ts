@@ -42,6 +42,8 @@ export type WpPostPage = {
   totalPages: number
 }
 
+export type WpPostFilter = 'all' | 'microposts' | 'articles'
+
 export type WpCredentials = {
   username: string
   applicationPassword: string
@@ -152,8 +154,27 @@ async function requestWpWithAuth<T>(
   return response.json() as Promise<T>
 }
 
-export async function fetchPosts(page = 1, perPage = 6): Promise<WpPostPage> {
-  const response = await fetch(`${WP_API_BASE}/posts?_embed&per_page=${perPage}&page=${page}`)
+export async function fetchPosts(
+  page = 1,
+  perPage = 6,
+  filter: WpPostFilter = 'all',
+  micropostTagId?: number | null,
+): Promise<WpPostPage> {
+  const params = new URLSearchParams({
+    _embed: '1',
+    per_page: String(perPage),
+    page: String(page),
+  })
+
+  if (filter === 'microposts' && micropostTagId) {
+    params.set('tags', String(micropostTagId))
+  }
+
+  if (filter === 'articles' && micropostTagId) {
+    params.set('tags_exclude', String(micropostTagId))
+  }
+
+  const response = await fetch(`${WP_API_BASE}/posts?${params.toString()}`)
 
   if (!response.ok) {
     throw new Error(`WordPress API error: ${response.status}`)
