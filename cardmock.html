@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>リングノート風ミニ投稿モック</title>
+  <style>
+    :root {
+      --ink: #32443b;
+      --muted: #6f8178;
+      --page-bg: #eaf7ef;
+      --paper: #fffef9;
+      --line: #dceee4;
+      --pill: #cdebd8;
+      --pill-2: #d9f2e2;
+      --shadow: 0 10px 24px rgba(76, 110, 90, .12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 40px 16px;
+      color: var(--ink);
+      font-family:
+        "Hiragino Kaku Gothic ProN",
+        "Yu Gothic",
+        "Meiryo",
+        system-ui,
+        sans-serif;
+      background: var(--page-bg);
+    }
+
+    .page {
+      width: min(920px, 100%);
+      margin: 0 auto;
+    }
+
+    .page-header {
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .page-header h1 {
+      margin: 0;
+      font-size: clamp(28px, 6vw, 48px);
+      letter-spacing: -.04em;
+    }
+
+    .page-header p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .post-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 30px;
+    }
+
+    .note-card {
+      position: relative;
+      min-height: 240px;
+      padding: 58px 24px 24px;
+      border-radius: 16px;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          var(--paper) 0,
+          var(--paper) 31px,
+          var(--line) 32px,
+          var(--paper) 33px
+        );
+      box-shadow: var(--shadow);
+    }
+
+    .note-card::before {
+      content: "";
+      position: absolute;
+      top: 16px;
+      left: 24px;
+      right: 24px;
+      height: 18px;
+      background:
+        radial-gradient(
+          circle,
+          #f7fbf8 0 5px,
+          #c7d9ce 5.5px 7px,
+          transparent 7.5px
+        );
+      background-size: 34px 18px;
+      background-repeat: repeat-x;
+    }
+
+    .author-pill {
+      position: absolute;
+      top: 42px;
+      left: 18px;
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: var(--pill);
+      box-shadow: 0 4px 10px rgba(76, 110, 90, .08);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: .02em;
+    }
+
+    .note-card:nth-child(even) .author-pill {
+      background: var(--pill-2);
+    }
+
+    .meta {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 14px;
+      min-height: 22px;
+    }
+
+    time {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .post-text {
+      margin: 0;
+      font-size: 16px;
+      line-height: 2.05;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .footer-note {
+      margin-top: 28px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 680px) {
+      body {
+        padding: 24px 12px;
+      }
+
+      .post-grid {
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+
+      .note-card {
+        min-height: 220px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="page-header">
+      <h1>ミニノート</h1>
+      <p>短い文章を、1枚ずつリングノート風に並べるモック</p>
+    </header>
+
+    <section class="post-grid" aria-label="短文投稿一覧">
+      <article class="note-card">
+        <span class="author-pill">tenzen</span>
+        <div class="meta">
+          <time datetime="2026-06-04">2026.06.04</time>
+        </div>
+        <p class="post-text">
+          今日は記事を書くほどではないけれど、あとで思い出したいことがいくつかあった。
+          こういう短い記録を気軽に置いておける場所があると、ブログも少し続けやすくなる気がする。
+        </p>
+      </article>
+
+      <article class="note-card">
+        <span class="author-pill">nobi</span>
+        <div class="meta">
+          <time datetime="2026-06-03">2026.06.03</time>
+        </div>
+        <p class="post-text">
+          タイトルを考える時間が長いと、書く前に面倒になってしまう。
+          タイトルなしの短文投稿なら、思いついたことをそのまま残せるので、更新の心理的なハードルも下がりそう。
+        </p>
+      </article>
+
+      <article class="note-card">
+        <span class="author-pill">muso</span>
+        <div class="meta">
+          <time datetime="2026-06-02">2026.06.02</time>
+        </div>
+        <p class="post-text">
+          ブログの記事一覧に、こういう小さなノートが混ざっていると少し楽しい。
+          長文の記事とは別に、短文だけを眺められるページがあってもよいかもしれない。
+        </p>
+      </article>
+
+      <article class="note-card">
+        <span class="author-pill">revive</span>
+        <div class="meta">
+          <time datetime="2026-06-01">2026.06.01</time>
+        </div>
+        <p class="post-text">
+          罫線とリング穴だけでも、ただの白いカードより少しだけ親しみやすく見える。
+          装飾を増やしすぎず、文章が主役になるくらいの軽さがちょうどよさそう。
+        </p>
+      </article>
+    </section>
+
+    <p class="footer-note">各カードは、おおむね140文字前後の短文を想定しています。</p>
+  </main>
+</body>
+</html>

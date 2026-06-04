@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Heart, Sparkles, Star } from 'lucide-react'
+import { Heart, MessageCircle, Repeat2 } from 'lucide-react'
 import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import './App.css'
-import heroLogo from './assets/nobilogo-hero.png'
 import headerLogo from './assets/nobilogo-header.png'
 import { formatPostDate, stripHtml } from './lib/format'
 import { fetchPost, fetchPosts, getAuthorName, getFeaturedImage, type WpPost, type WpPostPage } from './lib/wpApi'
@@ -137,43 +136,15 @@ function HomePage() {
 
   return (
     <main>
-      <section className="hero">
-        <div className="page hero-box">
-          <HeroDecor />
-          <div className="hero-content">
-            <h1 className="sr-only">濃尾無双RE:VIVE</h1>
-            <img className="hero-logo" src={heroLogo} alt="濃尾無双RE:VIVE" width="500" height="270" />
-            <p className="hero-lead">
-              虎子たちはここに集まっていたんだね
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="section" id="latest">
-        <div className="page">
-          <div className="section-head">
-            <div>
-              <h2 className="section-title">最新記事</h2>
-            </div>
+      <section className="section timeline-section" id="latest">
+        <div className="page timeline-page">
+          <div className="timeline-head">
+            <h1>最新記事</h1>
           </div>
           <PostList currentPage={currentPage} state={state} onPageChange={handlePageChange} />
         </div>
       </section>
     </main>
-  )
-}
-
-function HeroDecor() {
-  return (
-    <div className="hero-decor" aria-hidden="true">
-      <Star className="hero-charm charm-left-1 charm-pink" fill="currentColor" />
-      <Sparkles className="hero-charm charm-left-2 charm-orange" />
-      <Heart className="hero-charm charm-left-3 charm-blue" fill="currentColor" />
-      <Star className="hero-charm charm-right-1 charm-blue" fill="currentColor" />
-      <Sparkles className="hero-charm charm-right-2 charm-green" />
-      <Heart className="hero-charm charm-right-3 charm-pink" fill="currentColor" />
-    </div>
   )
 }
 
@@ -198,18 +169,13 @@ function PostList({
     return <StatusCard title="投稿がありません" text="公開済みの記事が見つかりませんでした。" />
   }
 
-  const [pickup, ...posts] = state.data.posts
-
   return (
     <>
-      <PostCard post={pickup} variant="pickup" />
-      {posts.length > 0 && (
-        <div className="post-grid">
-          {posts.map((post, index) => (
-            <PostCard key={post.id} post={post} index={index + 1} />
-          ))}
-        </div>
-      )}
+      <div className="post-feed">
+        {state.data.posts.map((post, index) => (
+          <PostCard key={post.id} post={post} index={index} />
+        ))}
+      </div>
       <Pagination
         currentPage={currentPage}
         totalPages={state.data.totalPages}
@@ -318,26 +284,39 @@ function getVisiblePages(currentPage: number, totalPages: number): number[] {
   return [currentPage - 1, currentPage, currentPage + 1]
 }
 
-function PostCard({ post, variant, index = 0 }: { post: WpPost; variant?: 'pickup'; index?: number }) {
-  const image = getFeaturedImage(post)
+function PostCard({ post, index = 0 }: { post: WpPost; index?: number }) {
   const authorName = getAuthorName(post)
   const title = stripHtml(post.title.rendered)
   const excerpt = stripHtml(post.excerpt.rendered)
+  const avatarLabel = (authorName || title || 'N').trim().slice(0, 1).toUpperCase()
 
   return (
     <Link
-      className={`post-card ${variant === 'pickup' ? 'pickup' : ''}`}
+      className="post-card"
       style={{ '--card-index': index } as CSSProperties}
       to={`/post/${post.id}`}
     >
-      <PostImage imageUrl={image?.source_url} alt={image?.alt_text || title} className="thumb" placeholderKey={post.id} />
+      <div className="post-avatar" aria-hidden="true">
+        {avatarLabel}
+      </div>
       <div className="post-body">
         <div className="meta">
-          <span className="chip">{formatPostDate(post.date)}</span>
-          {authorName && <span>{authorName}</span>}
+          {authorName && <strong>{authorName}</strong>}
+          <span>{formatPostDate(post.date)}</span>
         </div>
         <h3 className="post-title">{title}</h3>
         {excerpt && <p className="post-excerpt">{excerpt}</p>}
+        <div className="post-actions" aria-hidden="true">
+          <span>
+            <MessageCircle size={16} strokeWidth={2.7} />
+          </span>
+          <span>
+            <Repeat2 size={17} strokeWidth={2.7} />
+          </span>
+          <span>
+            <Heart size={16} strokeWidth={2.7} />
+          </span>
+        </div>
       </div>
     </Link>
   )
@@ -490,9 +469,11 @@ function StatusCard({ title, text, tone }: { title: string; text: string; tone?:
 
 function LoadingIndicator() {
   return (
-    <div className="loading-card" role="status" aria-live="polite" aria-label="記事を読み込み中">
-      <span className="loading-spinner" aria-hidden="true" />
-      <span>読み込み中...</span>
+    <div className="loading-modal" role="dialog" aria-modal="true" aria-label="記事を読み込み中">
+      <div className="loading-panel" role="status" aria-live="polite">
+        <span className="loading-spinner" aria-hidden="true" />
+        <span>読み込み中...</span>
+      </div>
     </div>
   )
 }
