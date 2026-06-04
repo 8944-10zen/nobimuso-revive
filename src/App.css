@@ -100,12 +100,21 @@
   gap: 10px;
   font-weight: 900;
   min-width: 0;
+  border-radius: 14px;
+  transition:
+    filter 0.16s ease,
+    transform 0.16s ease;
 }
 
 .brand-logo {
   width: 112px;
   height: auto;
   filter: drop-shadow(0 3px 0 rgba(37, 132, 29, 0.2));
+}
+
+.brand:hover {
+  filter: brightness(1.08) saturate(1.12);
+  transform: translateY(-2px) scale(1.035) rotate(-1deg);
 }
 
 .sr-only {
@@ -183,8 +192,14 @@
   animation: card-pop 0.42s cubic-bezier(0.2, 0.9, 0.2, 1.12) both;
   animation-delay: calc(var(--card-index, 0) * 55ms);
   transition:
+    border-color 0.16s ease,
     box-shadow 0.16s ease,
+    filter 0.16s ease,
     transform 0.16s ease;
+}
+
+.post-card.has-read-more {
+  padding-bottom: 62px;
 }
 
 .post-card::before {
@@ -239,9 +254,21 @@
   transform: rotate(-8deg);
 }
 
-.post-card:hover {
-  box-shadow: 0 14px 0 rgba(39, 112, 28, 0.2);
-  transform: translateY(-3px);
+.post-card-link:hover {
+  border-color: white;
+  box-shadow:
+    0 16px 0 rgba(39, 112, 28, 0.24),
+    0 20px 36px rgba(37, 132, 29, 0.18);
+  filter: saturate(1.06);
+  transform: translateY(-6px) rotate(-0.35deg);
+}
+
+.post-card-link:hover .read-more-button {
+  background: linear-gradient(#5de059, #16ae35);
+  box-shadow:
+    0 5px 0 var(--green-dark),
+    0 0 0 5px rgba(158, 216, 95, 0.2);
+  transform: translateY(-1px);
 }
 
 .thumb,
@@ -354,6 +381,30 @@
   overflow-wrap: anywhere;
 }
 
+.read-more-button {
+  position: absolute;
+  right: 0;
+  bottom: -42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 7px 14px;
+  border: 2px solid rgba(255, 255, 255, 0.94);
+  border-radius: 999px;
+  background: linear-gradient(#45c943, #149c2e);
+  color: white;
+  box-shadow: 0 4px 0 var(--green-dark);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
 .status-card {
   background: var(--surface);
   border: 5px solid white;
@@ -451,6 +502,11 @@
   box-shadow: 0 4px 0 rgba(37, 132, 29, 0.2);
   font-weight: 900;
   cursor: pointer;
+  transition:
+    background 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
 }
 
 .pagination-button {
@@ -461,6 +517,24 @@
   background: linear-gradient(#45c943, #149c2e);
   color: white;
   box-shadow: 0 4px 0 var(--green-dark);
+}
+
+.pagination-button:not(:disabled):hover,
+.pagination-page:not([aria-current='page']):hover {
+  background: #fff7cf;
+  color: #1f7f25;
+  box-shadow:
+    0 7px 0 rgba(37, 132, 29, 0.26),
+    0 10px 22px rgba(37, 132, 29, 0.16);
+  transform: translateY(-4px);
+}
+
+.pagination-page[aria-current='page']:hover {
+  box-shadow:
+    0 7px 0 var(--green-dark),
+    0 10px 22px rgba(37, 132, 29, 0.18);
+  filter: brightness(1.06);
+  transform: translateY(-3px);
 }
 
 .pagination-button:disabled {
@@ -644,6 +718,10 @@
   color: var(--green-dark);
   animation: soft-rise 0.42s ease both;
   animation-delay: 120ms;
+  transition:
+    background 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
 }
 
 .small-link-card span {
@@ -651,6 +729,14 @@
   margin-bottom: 6px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.small-link-card:hover {
+  background: #fffef9;
+  box-shadow:
+    0 10px 0 rgba(37, 132, 29, 0.2),
+    0 14px 28px rgba(37, 132, 29, 0.14);
+  transform: translateY(-4px);
 }
 
 .site-footer {

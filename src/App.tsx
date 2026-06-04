@@ -3,7 +3,7 @@ import DOMPurify from 'dompurify'
 import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import './App.css'
 import headerLogo from './assets/nobilogo-header.png'
-import { formatPostDate, stripHtml, truncateText } from './lib/format'
+import { formatPostDate, stripHtml } from './lib/format'
 import { fetchPost, fetchPosts, getAuthorName, getFeaturedImage, type WpPost, type WpPostPage } from './lib/wpApi'
 
 const POSTS_PER_PAGE = 7
@@ -287,14 +287,13 @@ function getVisiblePages(currentPage: number, totalPages: number): number[] {
 function PostCard({ post, index = 0 }: { post: WpPost; index?: number }) {
   const authorName = getAuthorName(post)
   const title = stripHtml(post.title.rendered)
-  const excerpt = truncateText(stripHtml(post.content.rendered) || stripHtml(post.excerpt.rendered), 140, '…')
-
-  return (
-    <Link
-      className="post-card"
-      style={{ '--card-index': index } as CSSProperties}
-      to={`/post/${post.id}`}
-    >
+  const bodyText = stripHtml(post.content.rendered) || stripHtml(post.excerpt.rendered)
+  const bodyCharacters = Array.from(bodyText)
+  const hasMore = bodyCharacters.length > 140
+  const excerpt = hasMore ? bodyCharacters.slice(0, 140).join('') : bodyText
+  const cardStyle = { '--card-index': index } as CSSProperties
+  const cardContent = (
+    <>
       <span className="card-tape card-tape-top" aria-hidden="true" />
       <span className="card-tape card-tape-bottom" aria-hidden="true" />
       {authorName && <strong className="author-pill">{authorName}</strong>}
@@ -304,7 +303,26 @@ function PostCard({ post, index = 0 }: { post: WpPost; index?: number }) {
         </div>
         <h3 className="post-title">{title}</h3>
         {excerpt && <p className="post-excerpt">{excerpt}</p>}
+        {hasMore && <span className="read-more-button">続きを読む</span>}
       </div>
+    </>
+  )
+
+  if (!hasMore) {
+    return (
+      <article className="post-card" style={cardStyle}>
+        {cardContent}
+      </article>
+    )
+  }
+
+  return (
+    <Link
+      className="post-card post-card-link has-read-more"
+      style={cardStyle}
+      to={`/post/${post.id}`}
+    >
+      {cardContent}
     </Link>
   )
 }
