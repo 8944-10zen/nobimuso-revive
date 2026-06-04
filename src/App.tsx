@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import DOMPurify from 'dompurify'
 import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import './App.css'
 import headerLogo from './assets/nobilogo-header.png'
@@ -364,6 +365,7 @@ function Article({ post }: { post: WpPost }) {
   const image = getFeaturedImage(post)
   const authorName = getAuthorName(post)
   const title = useMemo(() => stripHtml(post.title.rendered), [post.title.rendered])
+  const sanitizedContent = useMemo(() => DOMPurify.sanitize(post.content.rendered), [post.content.rendered])
 
   return (
     <>
@@ -382,7 +384,7 @@ function Article({ post }: { post: WpPost }) {
             <span className="chip">{formatPostDate(post.date)}</span>
           </div>
           <h1 className="article-title">{title}</h1>
-          <div className="article-content" dangerouslySetInnerHTML={{ __html: post.content.rendered }} />
+          <div className="article-content" dangerouslySetInnerHTML={{ __html: sanitizedContent }} />
         </div>
       </article>
       <div className="article-footer-nav">
