@@ -187,7 +187,7 @@ function PostList({
   onPageChange: (page: number) => void
 }) {
   if (state.status === 'loading') {
-    return null
+    return <LoadingIndicator />
   }
 
   if (state.status === 'error') {
@@ -387,7 +387,7 @@ function PostPage() {
   return (
     <main className="article-page">
       <div className="page article-shell">
-        {state.status === 'loading' && null}
+        {state.status === 'loading' && <LoadingIndicator />}
         {state.status === 'error' && <StatusCard title="記事を取得できませんでした" text={state.error} tone="error" />}
         {state.status === 'success' && <Article post={state.data} />}
       </div>
@@ -484,6 +484,15 @@ function StatusCard({ title, text, tone }: { title: string; text: string; tone?:
     <div className={`status-card ${tone === 'error' ? 'status-card-error' : ''}`}>
       <h2>{title}</h2>
       <p>{text}</p>
+    </div>
+  )
+}
+
+function LoadingIndicator() {
+  return (
+    <div className="loading-card" role="status" aria-live="polite" aria-label="記事を読み込み中">
+      <span className="loading-spinner" aria-hidden="true" />
+      <span>読み込み中...</span>
     </div>
   )
 }

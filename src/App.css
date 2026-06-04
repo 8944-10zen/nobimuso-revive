@@ -447,6 +447,31 @@
   background: #fff7cf;
 }
 
+.loading-card {
+  min-height: 190px;
+  display: grid;
+  place-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border: 5px solid white;
+  border-radius: 30px;
+  padding: 30px;
+  color: var(--green-dark);
+  font-size: 16px;
+  font-weight: 900;
+  box-shadow: 0 8px 0 var(--shadow);
+}
+
+.loading-spinner {
+  width: 54px;
+  height: 54px;
+  border: 7px solid rgba(158, 216, 95, 0.28);
+  border-top-color: var(--green-dark);
+  border-right-color: #f6cf5c;
+  border-radius: 50%;
+  animation: loading-spin 0.78s linear infinite;
+}
+
 .pagination {
   margin-top: 28px;
   background: var(--surface);
@@ -665,6 +690,12 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(1turn);
   }
 }
 
