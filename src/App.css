@@ -81,7 +81,7 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(201, 233, 130, 0.9);
+  background: #9ed85f;
   border-bottom: 4px solid rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(10px);
 }
