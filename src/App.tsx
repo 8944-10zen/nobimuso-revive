@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Heart, MessageCircle, Repeat2 } from 'lucide-react'
 import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import './App.css'
 import headerLogo from './assets/nobilogo-header.png'
-import { formatPostDate, stripHtml } from './lib/format'
+import { formatPostDate, stripHtml, truncateText } from './lib/format'
 import { fetchPost, fetchPosts, getAuthorName, getFeaturedImage, type WpPost, type WpPostPage } from './lib/wpApi'
 
 const POSTS_PER_PAGE = 7
@@ -287,8 +286,7 @@ function getVisiblePages(currentPage: number, totalPages: number): number[] {
 function PostCard({ post, index = 0 }: { post: WpPost; index?: number }) {
   const authorName = getAuthorName(post)
   const title = stripHtml(post.title.rendered)
-  const excerpt = stripHtml(post.excerpt.rendered)
-  const avatarLabel = (authorName || title || 'N').trim().slice(0, 1).toUpperCase()
+  const excerpt = truncateText(stripHtml(post.content.rendered) || stripHtml(post.excerpt.rendered), 140, '…')
 
   return (
     <Link
@@ -296,27 +294,15 @@ function PostCard({ post, index = 0 }: { post: WpPost; index?: number }) {
       style={{ '--card-index': index } as CSSProperties}
       to={`/post/${post.id}`}
     >
-      <div className="post-avatar" aria-hidden="true">
-        {avatarLabel}
-      </div>
+      <span className="card-tape card-tape-top" aria-hidden="true" />
+      <span className="card-tape card-tape-bottom" aria-hidden="true" />
+      {authorName && <strong className="author-pill">{authorName}</strong>}
       <div className="post-body">
-        <div className="meta">
-          {authorName && <strong>{authorName}</strong>}
+        <div className="meta post-meta">
           <span>{formatPostDate(post.date)}</span>
         </div>
         <h3 className="post-title">{title}</h3>
         {excerpt && <p className="post-excerpt">{excerpt}</p>}
-        <div className="post-actions" aria-hidden="true">
-          <span>
-            <MessageCircle size={16} strokeWidth={2.7} />
-          </span>
-          <span>
-            <Repeat2 size={17} strokeWidth={2.7} />
-          </span>
-          <span>
-            <Heart size={16} strokeWidth={2.7} />
-          </span>
-        </div>
       </div>
     </Link>
   )
@@ -382,6 +368,9 @@ function Article({ post }: { post: WpPost }) {
   return (
     <>
       <article className="article-card">
+        <span className="card-tape card-tape-top" aria-hidden="true" />
+        <span className="card-tape card-tape-bottom" aria-hidden="true" />
+        {authorName && <strong className="author-pill article-author">{authorName}</strong>}
         <PostImage
           imageUrl={image?.source_url}
           alt={image?.alt_text || title}
@@ -391,7 +380,6 @@ function Article({ post }: { post: WpPost }) {
         <div className="article-body">
           <div className="meta">
             <span className="chip">{formatPostDate(post.date)}</span>
-            {authorName && <span>{authorName}</span>}
           </div>
           <h1 className="article-title">{title}</h1>
           <div className="article-content" dangerouslySetInnerHTML={{ __html: post.content.rendered }} />
