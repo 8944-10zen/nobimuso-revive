@@ -36,7 +36,11 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg width='164' height='164' viewBox='0 0 164 164' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='%23ffffff' fill-opacity='0.16' d='M82 20.5l14.4 38.9 41.4 1.7-32.5 25.8 11.2 39.9L82 103.8l-34.5 23 11.2-39.9-32.5-25.8 41.4-1.7L82 20.5z'/%3E%3Cpath fill='%2367a837' fill-opacity='0.07' d='M20 118.5l7.1 19.1 20.4.8-16 12.7 5.5 19.6L20 159.4 3 170.7l5.5-19.6-16-12.7 20.4-.8L20 118.5zM144 2.5l7.1 19.1 20.4.8-16 12.7 5.5 19.6L144 43.4l-17 11.3 5.5-19.6-16-12.7 20.4-.8L144 2.5z'/%3E%3C/svg%3E");
+  background-position:
+    center top;
+  background-size: 164px 164px;
 }
 
 a {
