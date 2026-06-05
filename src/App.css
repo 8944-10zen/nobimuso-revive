@@ -118,9 +118,16 @@
   transform: translateY(-2px) scale(1.035) rotate(-1deg);
 }
 
-.header-auth {
+.header-actions {
   position: absolute;
   right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.header-auth {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -132,6 +139,7 @@
   min-height: 32px;
   display: inline-flex;
   align-items: center;
+  flex: 0 1 auto;
   gap: 5px;
   padding: 5px 10px;
   border: 2px solid rgba(255, 255, 255, 0.76);
@@ -147,11 +155,24 @@
   white-space: nowrap;
 }
 
+.header-auth-status svg,
+.header-auth-button svg {
+  flex: 0 0 auto;
+}
+
+.header-auth-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .header-auth-button {
   min-height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   gap: 5px;
   padding: 0 11px;
   border: 2px solid white;
@@ -178,6 +199,36 @@
 .header-auth-button:focus-visible {
   outline: 3px solid #8267e8;
   outline-offset: 3px;
+}
+
+.post-reload-button.header-reload-button {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  flex: 0 0 auto;
+  padding: 0;
+  border-width: 2px;
+  background: linear-gradient(#45c943, #149c2e);
+  color: white;
+  box-shadow: 0 4px 0 var(--green-dark);
+}
+
+.post-reload-button.header-reload-button:not(:disabled):hover {
+  background: linear-gradient(#45c943, #149c2e);
+  color: white;
+  box-shadow:
+    0 6px 0 var(--green-dark),
+    0 10px 22px rgba(37, 132, 29, 0.16);
+}
+
+.post-reload-button.header-reload-button span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 
 .sr-only {
@@ -240,7 +291,7 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  margin: 14px auto 0;
+  margin: 0 auto;
 }
 
 .post-filter {
@@ -443,7 +494,6 @@
   transform: translateY(-1px);
 }
 
-.thumb,
 .article-cover {
   min-height: 160px;
   aspect-ratio: 16 / 10;
@@ -455,7 +505,6 @@
     linear-gradient(135deg, #a5e85d, #5dc653);
 }
 
-.thumb img,
 .article-cover img {
   width: 100%;
   height: 100%;
@@ -879,13 +928,10 @@
 }
 
 .composer-secondary-button {
+  padding: 0 16px;
   background: #edf8ca;
   color: var(--green-dark);
   box-shadow: 0 4px 0 rgba(37, 132, 29, 0.16);
-}
-
-.composer-secondary-button {
-  padding: 0 16px;
 }
 
 .composer-primary-button:not(:disabled):hover,
@@ -937,10 +983,15 @@
     padding: 9px 0;
   }
 
-  .header-auth {
+  .header-actions {
     position: static;
-    flex-direction: column;
-    align-items: flex-end;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
+
+  .header-auth {
+    flex-direction: row;
+    align-items: center;
     gap: 5px;
   }
 
@@ -1626,17 +1677,25 @@
     width: clamp(88px, 27vw, 104px);
   }
 
-  .header-auth {
+  .header-actions {
     position: static;
     flex: 1 1 auto;
-    flex-direction: column;
-    align-items: flex-end;
+    justify-content: flex-end;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .header-auth {
+    flex: 0 1 auto;
+    flex-direction: row;
+    align-items: center;
     gap: 4px;
     min-width: 0;
   }
 
   .header-auth-status {
-    max-width: min(142px, 100%);
+    min-width: 74px;
+    max-width: min(116px, 100%);
     min-height: 27px;
     padding: 4px 8px;
     font-size: 11px;
@@ -1646,6 +1705,14 @@
     min-height: 30px;
     padding: 0 9px;
     font-size: 11px;
+  }
+
+  .post-reload-button.header-reload-button {
+    width: 32px;
+    height: 30px;
+    min-width: 32px;
+    min-height: 30px;
+    padding: 0;
   }
 
   .section {
@@ -1664,7 +1731,6 @@
   .timeline-controls {
     flex-wrap: wrap;
     gap: 8px;
-    margin-top: 12px;
   }
 
   .post-filter {
@@ -1893,7 +1959,7 @@
   }
 
   .composer-modal {
-    align-items: end;
+    place-items: center;
     padding: max(12px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
       max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   }
@@ -1977,7 +2043,8 @@
   }
 
   .header-auth-status {
-    max-width: 118px;
+    min-width: 70px;
+    max-width: 96px;
   }
 
   .header-auth-button span,
