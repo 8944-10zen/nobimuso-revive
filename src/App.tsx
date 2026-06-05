@@ -12,7 +12,7 @@ import {
   type SetStateAction,
 } from 'react'
 import DOMPurify, { type Config } from 'dompurify'
-import { LogIn, LogOut, PenLine, RefreshCw, Trash2, UserRound, X } from 'lucide-react'
+import { CircleAlert, LogIn, LogOut, PenLine, RefreshCw, Trash2, UserRound, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { EmbeddedTweet, TweetSkeleton } from 'react-tweet'
@@ -1867,6 +1867,15 @@ function SiteFooter() {
     <footer className="site-footer">
       <div className="page footer-inner">
         <img className="footer-logo" src={headerLogo} alt="濃尾無双RE:VIVE" width="240" height="130" />
+        <a
+          className="footer-report-link"
+          href="https://github.com/8944-10zen/nobimuso-revive/issues"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <CircleAlert size={18} aria-hidden="true" />
+          <span>不具合報告</span>
+        </a>
         <span className="copyright">© 2026 濃尾無双RE:VIVE</span>
       </div>
     </footer>
