@@ -10,7 +10,7 @@ import {
   type SetStateAction,
 } from 'react'
 import DOMPurify from 'dompurify'
-import { LogIn, LogOut, PenLine, Trash2, UserRound, X } from 'lucide-react'
+import { LogIn, LogOut, PenLine, RefreshCw, Trash2, UserRound, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import './App.css'
@@ -368,13 +368,29 @@ function HomePage({ session }: { session: WpSession }) {
     setPostFilter(filter)
   }
 
+  function handleReload() {
+    setState({ status: 'loading' })
+    setRefreshKey((value) => value + 1)
+  }
+
   return (
     <main>
       <section className="section timeline-section" id="latest">
         <div className="page timeline-page">
           <div className="timeline-head">
             <h1>最新記事</h1>
-            <PostFilterControls currentFilter={postFilter} onFilterChange={handleFilterChange} />
+            <div className="timeline-controls">
+              <PostFilterControls currentFilter={postFilter} onFilterChange={handleFilterChange} />
+              <button
+                className="post-reload-button"
+                type="button"
+                onClick={handleReload}
+                disabled={state.status === 'loading'}
+              >
+                <RefreshCw aria-hidden="true" size={16} strokeWidth={3} />
+                <span>{state.status === 'loading' ? '読込中' : '再読み込み'}</span>
+              </button>
+            </div>
           </div>
           <PostList
             currentPage={currentPage}
