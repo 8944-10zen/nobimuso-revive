@@ -9,7 +9,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from 'react'
-import DOMPurify from 'dompurify'
+import DOMPurify, { type Config } from 'dompurify'
 import { LogIn, LogOut, PenLine, RefreshCw, Trash2, UserRound, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom'
@@ -37,6 +37,55 @@ const POSTS_PER_PAGE = 7
 const MICROPOST_MAX_LENGTH = 140
 const MICROPOST_CREATED_EVENT = 'micropost-created'
 const MICROPOST_DELETED_EVENT = 'micropost-deleted'
+const WP_ORIGIN = 'https://edit.nobimuso.com'
+const SAFE_URL_PROTOCOLS = new Set(['http:', 'https:', 'mailto:', 'tel:'])
+const SAFE_IMAGE_PROTOCOLS = new Set(['http:', 'https:'])
+const YOUTUBE_EMBED_ORIGINS = new Set(['https://www.youtube.com', 'https://www.youtube-nocookie.com'])
+const WP_CONTENT_SANITIZE_CONFIG = {
+  USE_PROFILES: { html: true },
+  ADD_TAGS: ['iframe'],
+  ADD_ATTR: [
+    'allow',
+    'allowfullscreen',
+    'decoding',
+    'frameborder',
+    'height',
+    'loading',
+    'referrerpolicy',
+    'rel',
+    'src',
+    'target',
+    'title',
+    'width',
+  ],
+  FORBID_TAGS: [
+    'base',
+    'button',
+    'embed',
+    'form',
+    'input',
+    'link',
+    'meta',
+    'object',
+    'option',
+    'script',
+    'select',
+    'style',
+    'textarea',
+  ],
+  FORBID_ATTR: [
+    'autofocus',
+    'contenteditable',
+    'formaction',
+    'nonce',
+    'ping',
+    'sandbox',
+    'srcdoc',
+    'style',
+    'xlink:href',
+  ],
+  ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
+} satisfies Config
 const placeholderImages = Object.values(
   import.meta.glob<string>('./assets/placeholders/*.{png,jpg,jpeg,webp,avif}', {
     eager: true,
@@ -70,6 +119,112 @@ type WpSession = {
 
 function ModalPortal({ children }: { children: ReactNode }) {
   return createPortal(children, document.body)
+}
+
+function isSafeUrl(value: string, allowedProtocols: Set<string>): boolean {
+  try {
+    const url = new URL(value, window.location.origin)
+
+    return allowedProtocols.has(url.protocol)
+  } catch {
+    return false
+  }
+}
+
+function getSafeImageUrl(value?: string): string | undefined {
+  if (!value || !isSafeUrl(value, SAFE_IMAGE_PROTOCOLS)) {
+    return undefined
+  }
+
+  return value
+}
+
+function sanitizeSrcSet(value: string): string {
+  return value
+    .split(',')
+    .map((candidate) => candidate.trim())
+    .filter(Boolean)
+    .filter((candidate) => {
+      const [url] = candidate.split(/\s+/, 1)
+
+      return Boolean(url && isSafeUrl(url, SAFE_IMAGE_PROTOCOLS))
+    })
+    .join(', ')
+}
+
+function isSafeYouTubeEmbedUrl(value: string): boolean {
+  try {
+    const url = new URL(value, window.location.origin)
+
+    return YOUTUBE_EMBED_ORIGINS.has(url.origin) && url.pathname.startsWith('/embed/')
+  } catch {
+    return false
+  }
+}
+
+function sanitizeWpContent(html: string): string {
+  const sanitized = DOMPurify.sanitize(html, WP_CONTENT_SANITIZE_CONFIG)
+  const template = document.createElement('template')
+  template.innerHTML = sanitized
+
+  template.content.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((link) => {
+    const href = link.getAttribute('href')
+
+    if (!href || !isSafeUrl(href, SAFE_URL_PROTOCOLS)) {
+      link.removeAttribute('href')
+      return
+    }
+
+    link.setAttribute('rel', 'noopener noreferrer')
+    link.setAttribute('referrerpolicy', 'no-referrer')
+
+    const url = new URL(href, window.location.origin)
+    if (url.origin !== window.location.origin && url.origin !== WP_ORIGIN) {
+      link.setAttribute('target', '_blank')
+    }
+  })
+
+  template.content.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
+    const src = image.getAttribute('src')
+
+    if (src && !isSafeUrl(src, SAFE_IMAGE_PROTOCOLS)) {
+      image.removeAttribute('src')
+    }
+
+    const srcSet = image.getAttribute('srcset')
+    if (srcSet) {
+      const safeSrcSet = sanitizeSrcSet(srcSet)
+
+      if (safeSrcSet) {
+        image.setAttribute('srcset', safeSrcSet)
+      } else {
+        image.removeAttribute('srcset')
+      }
+    }
+
+    image.setAttribute('loading', 'lazy')
+    image.setAttribute('decoding', 'async')
+    image.setAttribute('referrerpolicy', 'no-referrer')
+  })
+
+  template.content.querySelectorAll<HTMLIFrameElement>('iframe').forEach((frame) => {
+    const src = frame.getAttribute('src')
+
+    if (!src || !isSafeYouTubeEmbedUrl(src)) {
+      frame.remove()
+      return
+    }
+
+    frame.setAttribute('loading', 'lazy')
+    frame.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin')
+    frame.setAttribute(
+      'allow',
+      'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
+    )
+    frame.setAttribute('allowfullscreen', '')
+  })
+
+  return template.innerHTML
 }
 
 function App() {
@@ -258,7 +413,8 @@ function HeaderAuthControls({ session }: { session: WpSession }) {
                   <span>アプリケーションパスワード</span>
                   <input
                     type="password"
-                    autoComplete="current-password"
+                    autoComplete="off"
+                    spellCheck={false}
                     value={applicationPassword}
                     onChange={(event) => setApplicationPassword(event.target.value)}
                   />
@@ -821,7 +977,8 @@ function DeleteMicropostButton({
                   <span>アプリケーションパスワード</span>
                   <input
                     type="password"
-                    autoComplete="current-password"
+                    autoComplete="off"
+                    spellCheck={false}
                     value={applicationPassword}
                     onChange={(event) => setApplicationPassword(event.target.value)}
                   />
@@ -869,11 +1026,12 @@ function DeleteMicropostButton({
 
 function PostPage({ session }: { session: WpSession }) {
   const { id } = useParams()
+  const hasValidPostId = Boolean(id && /^\d+$/.test(id))
   const micropostTagId = useMicropostTagId(session)
   const [state, setState] = useState<AsyncState<WpPost>>({ status: 'loading' })
 
   useEffect(() => {
-    if (!id) {
+    if (!id || !hasValidPostId) {
       return
     }
 
@@ -897,13 +1055,23 @@ function PostPage({ session }: { session: WpSession }) {
     return () => {
       ignore = true
     }
-  }, [id])
+  }, [id, hasValidPostId])
 
   if (!id) {
     return (
       <main className="article-page">
         <div className="page article-shell">
           <StatusCard title="記事を取得できませんでした" text="記事IDが指定されていません。" tone="error" />
+        </div>
+      </main>
+    )
+  }
+
+  if (!hasValidPostId) {
+    return (
+      <main className="article-page">
+        <div className="page article-shell">
+          <StatusCard title="記事を取得できませんでした" text="記事IDの形式が正しくありません。" tone="error" />
         </div>
       </main>
     )
@@ -926,7 +1094,7 @@ function Article({ post, isMicropost }: { post: WpPost; isMicropost: boolean }) 
   const image = getFeaturedImage(post)
   const authorName = getAuthorName(post)
   const title = useMemo(() => stripHtml(post.title.rendered), [post.title.rendered])
-  const sanitizedContent = useMemo(() => DOMPurify.sanitize(post.content.rendered), [post.content.rendered])
+  const sanitizedContent = useMemo(() => sanitizeWpContent(post.content.rendered), [post.content.rendered])
 
   return (
     <>
@@ -970,9 +1138,19 @@ function PostImage({
   placeholderKey: number | string
 }) {
   if (imageUrl) {
+    const safeImageUrl = getSafeImageUrl(imageUrl)
+
+    if (!safeImageUrl) {
+      return (
+        <div className={`${className} thumb-placeholder`}>
+          <span>RE:VIVE</span>
+        </div>
+      )
+    }
+
     return (
       <div className={className}>
-        <img src={imageUrl} alt={alt} loading="lazy" />
+        <img src={safeImageUrl} alt={alt} loading="lazy" decoding="async" referrerPolicy="no-referrer" />
       </div>
     )
   }
@@ -982,7 +1160,7 @@ function PostImage({
   if (placeholderImage) {
     return (
       <div className={`${className} thumb-placeholder`}>
-        <img src={placeholderImage} alt="" loading="lazy" />
+        <img src={placeholderImage} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
       </div>
     )
   }
@@ -1212,7 +1390,8 @@ function MicropostComposer({ session }: { session: WpSession }) {
                   <span>アプリケーションパスワード</span>
                   <input
                     type="password"
-                    autoComplete="current-password"
+                    autoComplete="off"
+                    spellCheck={false}
                     value={applicationPassword}
                     onChange={(event) => setApplicationPassword(event.target.value)}
                   />

@@ -75,7 +75,9 @@ export class WpApiError extends Error {
 }
 
 async function requestWp<T>(path: string): Promise<T> {
-  const response = await fetch(`${WP_API_BASE}${path}`)
+  const response = await fetch(`${WP_API_BASE}${path}`, {
+    credentials: 'omit',
+  })
 
   if (!response.ok) {
     throw new Error(`WordPress API error: ${response.status}`)
@@ -138,6 +140,7 @@ async function requestWpWithAuth<T>(
   try {
     response = await fetch(`${WP_API_BASE}${path}`, {
       ...init,
+      credentials: 'omit',
       headers: {
         ...init.headers,
         Authorization: getBasicAuthHeader(credentials),
@@ -174,7 +177,9 @@ export async function fetchPosts(
     params.set('tags_exclude', String(micropostTagId))
   }
 
-  const response = await fetch(`${WP_API_BASE}/posts?${params.toString()}`)
+  const response = await fetch(`${WP_API_BASE}/posts?${params.toString()}`, {
+    credentials: 'omit',
+  })
 
   if (!response.ok) {
     throw new Error(`WordPress API error: ${response.status}`)
@@ -190,7 +195,7 @@ export async function fetchPosts(
 }
 
 export function fetchPost(id: string): Promise<WpPost> {
-  return requestWp<WpPost>(`/posts/${id}?_embed`)
+  return requestWp<WpPost>(`/posts/${encodeURIComponent(id)}?_embed`)
 }
 
 export function verifyWpCredentials(credentials: WpCredentials): Promise<WpCurrentUser> {
