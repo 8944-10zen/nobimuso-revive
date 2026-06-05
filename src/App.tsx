@@ -1628,8 +1628,7 @@ function MicropostComposer({ session }: { session: WpSession }) {
   const [isPosting, setIsPosting] = useState(false)
 
   const characterCount = Array.from(content).length
-  const validationError = getMicropostValidationError(content)
-  const canPost = !validationError && !isPosting
+  const canPost = !isPosting
 
   useEffect(() => {
     if (view === 'closed') {
@@ -1716,8 +1715,10 @@ function MicropostComposer({ session }: { session: WpSession }) {
       return
     }
 
-    if (validationError) {
-      setPostError(validationError)
+    const nextValidationError = getMicropostValidationError(content)
+
+    if (nextValidationError) {
+      setPostError(nextValidationError)
       return
     }
 
@@ -1794,9 +1795,9 @@ function MicropostComposer({ session }: { session: WpSession }) {
               <div className="composer-count" aria-live="polite">
                 {characterCount} / {MICROPOST_MAX_LENGTH}
               </div>
-              {(postError || validationError) && (
+              {postError && (
                 <p className="composer-message composer-message-error" role="alert">
-                  {postError || validationError}
+                  {postError}
                 </p>
               )}
               {postSuccess && (
