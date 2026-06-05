@@ -13,6 +13,9 @@ import DOMPurify, { type Config } from 'dompurify'
 import { LogIn, LogOut, PenLine, RefreshCw, Trash2, UserRound, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom'
+import { EmbeddedTweet, TweetSkeleton } from 'react-tweet'
+import type { Tweet as ReactTweetData } from 'react-tweet/api'
+import 'react-tweet/theme.css'
 import './App.css'
 import headerLogo from './assets/nobilogo-header.png'
 import { formatPostDate, stripHtml, stripHtmlPreservingLineBreaks } from './lib/format'
@@ -41,6 +44,7 @@ const WP_ORIGIN = 'https://edit.nobimuso.com'
 const SAFE_URL_PROTOCOLS = new Set(['http:', 'https:', 'mailto:', 'tel:'])
 const SAFE_IMAGE_PROTOCOLS = new Set(['http:', 'https:'])
 const YOUTUBE_EMBED_ORIGINS = new Set(['https://www.youtube.com', 'https://www.youtube-nocookie.com'])
+const REACT_TWEET_API_BASE = 'https://react-tweet.vercel.app/api/tweet'
 const WP_CONTENT_SANITIZE_CONFIG = {
   USE_PROFILES: { html: true },
   ADD_TAGS: ['iframe'],
@@ -104,6 +108,15 @@ type TapFlare = {
   x: number
   y: number
 }
+
+type ArticleContentBlock =
+  | { type: 'html'; key: string; html: string }
+  | { type: 'tweet'; key: string; tweetId: string; url: string }
+
+type TweetEmbedState =
+  | { status: 'loading'; tweet?: undefined; error?: undefined }
+  | { status: 'success'; tweet: ReactTweetData; error?: undefined }
+  | { status: 'error'; tweet?: undefined; error: string }
 
 type WpSession = {
   credentials: WpCredentials | null
@@ -225,6 +238,145 @@ function sanitizeWpContent(html: string): string {
   })
 
   return template.innerHTML
+}
+
+function getTweetIdFromUrl(value: string): string | null {
+  try {
+    const url = new URL(value, window.location.origin)
+    const isTweetHost =
+      url.hostname === 'x.com' ||
+      url.hostname.endsWith('.x.com') ||
+      url.hostname === 'twitter.com' ||
+      url.hostname.endsWith('.twitter.com')
+
+    if (!isTweetHost) {
+      return null
+    }
+
+    return url.pathname.match(/\/[^/]+\/status(?:es)?\/(\d+)/i)?.[1] ?? null
+  } catch {
+    return null
+  }
+}
+
+function getTweetUrlFromElement(element: Element): string | null {
+  const tweetLink = element.querySelector<HTMLAnchorElement>('a[href*="/status/"], a[href*="/statuses/"]')
+
+  if (tweetLink?.href && getTweetIdFromUrl(tweetLink.href)) {
+    return tweetLink.href
+  }
+
+  const text = element.textContent ?? ''
+  const match = text.match(/https?:\/\/(?:mobile\.)?(?:x\.com|twitter\.com)\/[^\s"'<>]+\/status(?:es)?\/\d+[^\s"'<>]*/i)
+
+  return match?.[0] ?? null
+}
+
+function isStandaloneTweetReference(element: Element, tweetUrl: string): boolean {
+  const text = (element.textContent ?? '').trim()
+
+  if (!text) {
+    return false
+  }
+
+  const textWithoutUrl = text
+    .replace(tweetUrl, '')
+    .replace(/[()[\]{}.,:;'"「」『』\s]/g, '')
+
+  return textWithoutUrl.length === 0
+}
+
+function createTweetMarker(index: number): HTMLDivElement {
+  const marker = document.createElement('div')
+  marker.setAttribute('data-tweet-embed-index', String(index))
+
+  return marker
+}
+
+function serializeNode(node: Node): string {
+  const wrapper = document.createElement('div')
+  wrapper.appendChild(node.cloneNode(true))
+
+  return wrapper.innerHTML
+}
+
+function extractArticleContentBlocks(html: string): ArticleContentBlock[] {
+  const template = document.createElement('template')
+  template.innerHTML = html
+  const tweets: Array<{ tweetId: string; url: string }> = []
+  const embeddedTweetSelector = 'blockquote.twitter-tweet, .wp-block-embed-twitter, .wp-block-embed-x, .twitter-tweet'
+
+  function replaceWithTweet(element: Element, tweetUrl: string) {
+    const tweetId = getTweetIdFromUrl(tweetUrl)
+    const embedRoot = element.closest('figure.wp-block-embed, .wp-block-embed-twitter, .wp-block-embed-x')
+    const target = embedRoot ?? element
+
+    if (!tweetId || !target.parentNode) {
+      return
+    }
+
+    const tweetIndex = tweets.length
+    tweets.push({ tweetId, url: tweetUrl })
+    target.replaceWith(createTweetMarker(tweetIndex))
+  }
+
+  Array.from(template.content.querySelectorAll(embeddedTweetSelector)).forEach((element) => {
+    if (element.parentElement?.closest(embeddedTweetSelector)) {
+      return
+    }
+
+    const tweetUrl = getTweetUrlFromElement(element)
+
+    if (tweetUrl) {
+      replaceWithTweet(element, tweetUrl)
+    }
+  })
+
+  Array.from(template.content.querySelectorAll<HTMLAnchorElement>('a[href]')).forEach((link) => {
+    const href = link.getAttribute('href')
+
+    if (!href || !getTweetIdFromUrl(href)) {
+      return
+    }
+
+    const container = link.closest('p, figure, div, li')
+
+    if (!container || !isStandaloneTweetReference(container, href)) {
+      return
+    }
+
+    replaceWithTweet(container, href)
+  })
+
+  const blocks: ArticleContentBlock[] = []
+  let htmlBuffer = ''
+
+  Array.from(template.content.childNodes).forEach((node, index) => {
+    if (node instanceof HTMLElement && node.hasAttribute('data-tweet-embed-index')) {
+      if (htmlBuffer.trim()) {
+        blocks.push({ type: 'html', key: `html-${index}`, html: htmlBuffer })
+      }
+
+      htmlBuffer = ''
+
+      const tweetIndex = Number(node.getAttribute('data-tweet-embed-index'))
+      const tweet = tweets[tweetIndex]
+
+      if (tweet) {
+        blocks.push({ type: 'tweet', key: `tweet-${tweet.tweetId}-${index}`, ...tweet })
+      }
+
+      return
+    }
+
+    htmlBuffer += serializeNode(node)
+  })
+
+  if (htmlBuffer.trim()) {
+    blocks.push({ type: 'html', key: 'html-last', html: htmlBuffer })
+  }
+
+  return blocks
 }
 
 function App() {
@@ -1113,7 +1265,7 @@ function Article({ post, isMicropost }: { post: WpPost; isMicropost: boolean }) 
             <span className="chip">{formatPostDate(post.date)}</span>
           </div>
           {!isMicropost && <h1 className="article-title">{title}</h1>}
-          <div className="article-content" dangerouslySetInnerHTML={{ __html: sanitizedContent }} />
+          <ArticleContent html={sanitizedContent} />
         </div>
       </article>
       <div className="article-footer-nav">
@@ -1123,6 +1275,88 @@ function Article({ post, isMicropost }: { post: WpPost; isMicropost: boolean }) 
         </Link>
       </div>
     </>
+  )
+}
+
+function ArticleContent({ html }: { html: string }) {
+  const blocks = useMemo(() => extractArticleContentBlocks(html), [html])
+
+  return (
+    <div className="article-content">
+      {blocks.map((block) => {
+        if (block.type === 'tweet') {
+          return (
+            <div className="article-tweet" key={block.key}>
+              <ArticleTweet tweetId={block.tweetId} url={block.url} />
+            </div>
+          )
+        }
+
+        return <div key={block.key} dangerouslySetInnerHTML={{ __html: block.html }} />
+      })}
+    </div>
+  )
+}
+
+function ArticleTweet({ tweetId, url }: { tweetId: string; url: string }) {
+  const [state, setState] = useState<TweetEmbedState>({ status: 'loading' })
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadTweet() {
+      setState({ status: 'loading' })
+
+      try {
+        const response = await fetch(`${REACT_TWEET_API_BASE}/${encodeURIComponent(tweetId)}`, {
+          signal: controller.signal,
+        })
+        const json = (await response.json()) as { data?: ReactTweetData | null }
+
+        if (!response.ok) {
+          throw new Error(`react-tweet API error: ${response.status}`)
+        }
+
+        if (!json.data) {
+          throw new Error(`Tweet ${tweetId} was not found.`)
+        }
+
+        setState({ status: 'success', tweet: json.data })
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return
+        }
+
+        const message = error instanceof Error ? error.message : 'Tweet fetch failed.'
+        console.warn('Failed to render embedded post.', { tweetId, url, error })
+        setState({ status: 'error', error: message })
+      }
+    }
+
+    loadTweet()
+
+    return () => {
+      controller.abort()
+    }
+  }, [tweetId, url])
+
+  if (state.status === 'success') {
+    return <EmbeddedTweet tweet={state.tweet} />
+  }
+
+  if (state.status === 'loading') {
+    return <TweetSkeleton />
+  }
+
+  return <TweetFallback url={url} text="ポストを表示できませんでした" />
+}
+
+function TweetFallback({ url, text }: { url: string; text: string }) {
+  return (
+    <a className="article-tweet-fallback" href={url} target="_blank" rel="noopener noreferrer">
+      <span>{text}</span>
+      <strong>Twitter / X で開く</strong>
+    </a>
   )
 }
 
