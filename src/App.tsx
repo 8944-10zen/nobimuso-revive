@@ -6,7 +6,9 @@ import {
   type CSSProperties,
   type Dispatch,
   type FormEvent,
+  type MouseEvent,
   type ReactNode,
+  type KeyboardEvent as ReactKeyboardEvent,
   type SetStateAction,
 } from 'react'
 import DOMPurify, { type Config } from 'dompurify'
@@ -118,6 +120,11 @@ type TweetEmbedState =
   | { status: 'success'; tweet: ReactTweetData; error?: undefined }
   | { status: 'error'; tweet?: undefined; error: string }
 
+type ImagePreview = {
+  src: string
+  alt: string
+}
+
 type WpSession = {
   credentials: WpCredentials | null
   setCredentials: Dispatch<SetStateAction<WpCredentials | null>>
@@ -150,6 +157,22 @@ function getSafeImageUrl(value?: string): string | undefined {
   }
 
   return value
+}
+
+function getSafeLinkedImageUrl(value?: string): string | undefined {
+  const safeUrl = getSafeImageUrl(value)
+
+  if (!safeUrl) {
+    return undefined
+  }
+
+  try {
+    const url = new URL(safeUrl, window.location.origin)
+
+    return /\.(?:avif|gif|jpe?g|png|webp)(?:$|[?#])/i.test(url.pathname) ? safeUrl : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function sanitizeSrcSet(value: string): string {
@@ -218,6 +241,9 @@ function sanitizeWpContent(html: string): string {
     image.setAttribute('loading', 'lazy')
     image.setAttribute('decoding', 'async')
     image.setAttribute('referrerpolicy', 'no-referrer')
+    image.setAttribute('role', 'button')
+    image.setAttribute('tabindex', '0')
+    image.setAttribute('aria-label', '画像を拡大表示')
   })
 
   template.content.querySelectorAll<HTMLIFrameElement>('iframe').forEach((frame) => {
@@ -1280,21 +1306,116 @@ function Article({ post, isMicropost }: { post: WpPost; isMicropost: boolean }) 
 
 function ArticleContent({ html }: { html: string }) {
   const blocks = useMemo(() => extractArticleContentBlocks(html), [html])
+  const [preview, setPreview] = useState<ImagePreview | null>(null)
+
+  useEffect(() => {
+    if (!preview) {
+      return
+    }
+
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    function closeOnEscape(event: globalThis.KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setPreview(null)
+      }
+    }
+
+    window.addEventListener('keydown', closeOnEscape)
+
+    return () => {
+      document.body.style.overflow = originalOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [preview])
+
+  function getPreviewFromImage(image: HTMLImageElement): ImagePreview | null {
+    const linkedImage = image.closest<HTMLAnchorElement>('a[href]')
+    const linkHref = linkedImage?.getAttribute('href') ?? undefined
+    const src = getSafeLinkedImageUrl(linkHref) ?? getSafeImageUrl(image.currentSrc || image.src)
+
+    if (!src) {
+      return null
+    }
+
+    return {
+      src,
+      alt: image.getAttribute('alt') || '記事画像',
+    }
+  }
+
+  function openImagePreview(image: HTMLImageElement) {
+    const nextPreview = getPreviewFromImage(image)
+
+    if (nextPreview) {
+      setPreview(nextPreview)
+    }
+  }
+
+  function handleContentClick(event: MouseEvent<HTMLDivElement>) {
+    const image = (event.target as HTMLElement | null)?.closest<HTMLImageElement>('.article-content img')
+
+    if (!image) {
+      return
+    }
+
+    event.preventDefault()
+    openImagePreview(image)
+  }
+
+  function handleContentKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return
+    }
+
+    const target = event.target
+
+    if (!(target instanceof HTMLImageElement)) {
+      return
+    }
+
+    event.preventDefault()
+    openImagePreview(target)
+  }
 
   return (
-    <div className="article-content">
-      {blocks.map((block) => {
-        if (block.type === 'tweet') {
-          return (
-            <div className="article-tweet" key={block.key}>
-              <ArticleTweet tweetId={block.tweetId} url={block.url} />
-            </div>
-          )
-        }
+    <>
+      <div className="article-content" onClick={handleContentClick} onKeyDown={handleContentKeyDown}>
+        {blocks.map((block) => {
+          if (block.type === 'tweet') {
+            return (
+              <div className="article-tweet" key={block.key}>
+                <ArticleTweet tweetId={block.tweetId} url={block.url} />
+              </div>
+            )
+          }
 
-        return <div key={block.key} dangerouslySetInnerHTML={{ __html: block.html }} />
-      })}
-    </div>
+          return <div key={block.key} dangerouslySetInnerHTML={{ __html: block.html }} />
+        })}
+      </div>
+      {preview && (
+        <ModalPortal>
+          <div className="image-preview-modal" role="dialog" aria-modal="true" onClick={() => setPreview(null)}>
+            <button
+              className="image-preview-close"
+              type="button"
+              aria-label="拡大表示を閉じる"
+              onClick={() => setPreview(null)}
+            >
+              <X size={22} strokeWidth={3} />
+            </button>
+            <img
+              className="image-preview-media"
+              src={preview.src}
+              alt={preview.alt}
+              decoding="async"
+              onClick={(event) => event.stopPropagation()}
+            />
+          </div>
+        </ModalPortal>
+      )}
+    </>
   )
 }
 
