@@ -836,7 +836,7 @@ function HomePage({
 
 const postFilterOptions: Array<{ value: WpPostFilter; label: string }> = [
   { value: 'all', label: '全て表示' },
-  { value: 'microposts', label: '短文のみ' },
+  { value: 'microposts', label: '呟きのみ' },
   { value: 'articles', label: '記事のみ' },
 ]
 
@@ -866,7 +866,7 @@ function PostFilterControls({
 
 function getEmptyPostFilterText(filter: WpPostFilter): string {
   if (filter === 'microposts') {
-    return '公開済みの短文投稿が見つかりませんでした。'
+    return '公開済みの呟きが見つかりませんでした。'
   }
 
   if (filter === 'articles') {
@@ -1266,7 +1266,7 @@ function DeleteMicropostButton({
       <button
         className="micropost-delete-button"
         type="button"
-        aria-label="この短文投稿を削除する"
+        aria-label="この呟きを削除する"
         onClick={openDeleteFlow}
       >
         <Trash2 size={16} aria-hidden="true" />
@@ -1295,7 +1295,7 @@ function DeleteMicropostButton({
             />
           ) : (
             <div className="composer-form">
-              <h2 id={`delete-confirm-title-${postId}`}>短文投稿を削除</h2>
+              <h2 id={`delete-confirm-title-${postId}`}>呟きを削除</h2>
               <p className="delete-confirm-text">{postLabel || `投稿ID ${postId}`}</p>
               {deleteError && (
                 <p className="composer-message composer-message-error" role="alert">
@@ -1303,9 +1303,6 @@ function DeleteMicropostButton({
                 </p>
               )}
               <div className="composer-actions">
-                <button className="composer-secondary-button" type="button" onClick={() => setView('closed')}>
-                  キャンセル
-                </button>
                 <button className="composer-danger-button" type="button" disabled={isDeleting} onClick={handleDelete}>
                   {isDeleting ? '削除中...' : '削除する'}
                 </button>
@@ -1691,7 +1688,6 @@ function MicropostComposer({ session }: { session: WpSession }) {
   const [content, setContent] = useState('')
   const [isSpoiler, setIsSpoiler] = useState(false)
   const [postError, setPostError] = useState('')
-  const [postSuccess, setPostSuccess] = useState('')
   const [isPosting, setIsPosting] = useState(false)
 
   const characterCount = Array.from(content).length
@@ -1718,7 +1714,6 @@ function MicropostComposer({ session }: { session: WpSession }) {
   async function openComposer() {
     setAuthError('')
     setPostError('')
-    setPostSuccess('')
 
     if (!session.credentials) {
       setView('auth')
@@ -1773,7 +1768,6 @@ function MicropostComposer({ session }: { session: WpSession }) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setPostError('')
-    setPostSuccess('')
 
     const currentCredentials = session.credentials
 
@@ -1809,7 +1803,7 @@ function MicropostComposer({ session }: { session: WpSession }) {
       await createMicropost(content, tagIds, currentCredentials)
       setContent('')
       setIsSpoiler(false)
-      setPostSuccess('短文を投稿しました。')
+      setView('closed')
       window.dispatchEvent(new Event(MICROPOST_CREATED_EVENT))
     } catch (error) {
       if (error instanceof WpApiError && error.kind === 'auth') {
@@ -1830,12 +1824,11 @@ function MicropostComposer({ session }: { session: WpSession }) {
 
     setContent(nextContent)
     setPostError('')
-    setPostSuccess('')
   }
 
   return (
     <>
-      <button className="micropost-fab" type="button" aria-label="短文を投稿する" onClick={openComposer}>
+      <button className="micropost-fab" type="button" aria-label="呟きを投稿する" onClick={openComposer}>
         <PenLine size={25} aria-hidden="true" />
       </button>
 
@@ -1857,7 +1850,7 @@ function MicropostComposer({ session }: { session: WpSession }) {
             />
           ) : (
             <form className="composer-form" onSubmit={handleSubmit}>
-              <h2 id="composer-title">短文投稿</h2>
+              <h2 id="composer-title">呟き投稿</h2>
               <label className="composer-field">
                 <span className="sr-only">投稿本文</span>
                 <textarea
@@ -1877,7 +1870,6 @@ function MicropostComposer({ session }: { session: WpSession }) {
                   onChange={(event) => {
                     setIsSpoiler(event.target.checked)
                     setPostError('')
-                    setPostSuccess('')
                   }}
                 />
                 <span>ネタバレ注意</span>
@@ -1887,15 +1879,7 @@ function MicropostComposer({ session }: { session: WpSession }) {
                   {postError}
                 </p>
               )}
-              {postSuccess && (
-                <p className="composer-message composer-message-success" role="status">
-                  {postSuccess}
-                </p>
-              )}
               <div className="composer-actions">
-                <button className="composer-secondary-button" type="button" onClick={() => setView('closed')}>
-                  閉じる
-                </button>
                 <button className="composer-primary-button" type="submit" disabled={!canPost}>
                   {isPosting ? '投稿中...' : '投稿する'}
                 </button>
@@ -1962,7 +1946,7 @@ function SiteFooter() {
           rel="noreferrer"
         >
           <CircleAlert size={18} aria-hidden="true" />
-          <span>不具合報告</span>
+          <span>不具合報告・要望</span>
         </a>
         <span className="copyright">© 2026 濃尾無双RE:VIVE</span>
       </div>
