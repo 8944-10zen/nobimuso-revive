@@ -202,14 +202,22 @@ export function verifyWpCredentials(credentials: WpCredentials): Promise<WpCurre
   return requestWpWithAuth<WpCurrentUser>('/users/me', credentials)
 }
 
-export async function fetchMicropostTagId(): Promise<number | null> {
-  const tags = await requestWp<WpTag[]>('/tags?slug=micropost')
+async function fetchTagId(slug: string): Promise<number | null> {
+  const tags = await requestWp<WpTag[]>(`/tags?slug=${encodeURIComponent(slug)}`)
 
   return tags[0]?.id ?? null
 }
 
-export async function getOrCreateMicropostTagId(credentials: WpCredentials): Promise<number> {
-  const tags = await requestWpWithAuth<WpTag[]>('/tags?slug=micropost', credentials)
+export function fetchMicropostTagId(): Promise<number | null> {
+  return fetchTagId('micropost')
+}
+
+export function fetchSpoilerTagId(): Promise<number | null> {
+  return fetchTagId('spoiler')
+}
+
+async function getOrCreateTagId(slug: string, credentials: WpCredentials): Promise<number> {
+  const tags = await requestWpWithAuth<WpTag[]>(`/tags?slug=${encodeURIComponent(slug)}`, credentials)
 
   if (tags[0]?.id) {
     return tags[0].id
@@ -222,22 +230,30 @@ export async function getOrCreateMicropostTagId(credentials: WpCredentials): Pro
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: 'micropost',
-        slug: 'micropost',
+        name: slug,
+        slug,
       }),
     })
 
     return tag.id
   } catch (error) {
     if (error instanceof WpApiError && error.kind === 'auth') {
-      throw new WpApiError('WordPress管理画面でmicropostタグを作成してください。', 'tag', error.status)
+      throw new WpApiError(`WordPress管理画面で${slug}タグを作成してください。`, 'tag', error.status)
     }
 
     throw error
   }
 }
 
-export function createMicropost(content: string, tagId: number, credentials: WpCredentials): Promise<WpPost> {
+export function getOrCreateMicropostTagId(credentials: WpCredentials): Promise<number> {
+  return getOrCreateTagId('micropost', credentials)
+}
+
+export function getOrCreateSpoilerTagId(credentials: WpCredentials): Promise<number> {
+  return getOrCreateTagId('spoiler', credentials)
+}
+
+export function createMicropost(content: string, tagIds: number[], credentials: WpCredentials): Promise<WpPost> {
   return requestWpWithAuth<WpPost>('/posts', credentials, {
     method: 'POST',
     headers: {
@@ -247,7 +263,7 @@ export function createMicropost(content: string, tagId: number, credentials: WpC
       content,
       title: `micropost-${new Date().toISOString()}`,
       status: 'publish',
-      tags: [tagId],
+      tags: tagIds,
     }),
   })
 }

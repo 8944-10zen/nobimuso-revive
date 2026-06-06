@@ -28,9 +28,11 @@ import {
   fetchMicropostTagId,
   fetchPost,
   fetchPosts,
+  fetchSpoilerTagId,
   getAuthorName,
   getFeaturedImage,
   getOrCreateMicropostTagId,
+  getOrCreateSpoilerTagId,
   verifyWpCredentials,
   type WpCredentials,
   type WpPostFilter,
@@ -138,6 +140,8 @@ type WpSession = {
   clearCredentials: () => void
   micropostTagId: number | null
   setMicropostTagId: Dispatch<SetStateAction<number | null>>
+  spoilerTagId: number | null
+  setSpoilerTagId: Dispatch<SetStateAction<number | null>>
 }
 
 function ModalPortal({ children }: { children: ReactNode }) {
@@ -439,6 +443,7 @@ function App() {
   const [currentUserId, setCurrentUserId] = useState<number | null>(null)
   const [currentUserName, setCurrentUserName] = useState('')
   const [micropostTagId, setMicropostTagId] = useState<number | null>(null)
+  const [spoilerTagId, setSpoilerTagId] = useState<number | null>(null)
   const [postListStatus, setPostListStatus] = useState<AsyncState<WpPostPage>['status']>('loading')
 
   function clearCredentials() {
@@ -446,6 +451,7 @@ function App() {
     setCurrentUserId(null)
     setCurrentUserName('')
     setMicropostTagId(null)
+    setSpoilerTagId(null)
   }
 
   const session = {
@@ -458,6 +464,8 @@ function App() {
     clearCredentials,
     micropostTagId,
     setMicropostTagId,
+    spoilerTagId,
+    setSpoilerTagId,
   }
 
   return (
@@ -882,6 +890,7 @@ function PostList({
   onPageChange: (page: number) => void
 }) {
   const micropostTagId = useMicropostTagId(session)
+  const spoilerTagId = useSpoilerTagId(session)
   const { currentUserId } = session
 
   if (state.status === 'loading') {
@@ -901,6 +910,7 @@ function PostList({
       <div className="post-feed">
         {state.data.posts.map((post, index) => {
           const isMicropost = Boolean(micropostTagId && post.tags?.includes(micropostTagId))
+          const hasSpoiler = Boolean(spoilerTagId && post.tags?.includes(spoilerTagId))
 
           return (
             <PostCard
@@ -908,6 +918,7 @@ function PostList({
               post={post}
               index={index}
               isMicropost={isMicropost}
+              hasSpoiler={hasSpoiler}
               canDelete={Boolean(currentUserId && isMicropost && post.author === currentUserId)}
               session={session}
             />
@@ -952,6 +963,36 @@ function useMicropostTagId(session: WpSession): number | null {
   }, [micropostTagId, setMicropostTagId])
 
   return micropostTagId
+}
+
+function useSpoilerTagId(session: WpSession): number | null {
+  const { spoilerTagId, setSpoilerTagId } = session
+
+  useEffect(() => {
+    if (spoilerTagId) {
+      return
+    }
+
+    let ignore = false
+
+    fetchSpoilerTagId()
+      .then((tagId) => {
+        if (!ignore) {
+          setSpoilerTagId(tagId)
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setSpoilerTagId(null)
+        }
+      })
+
+    return () => {
+      ignore = true
+    }
+  }, [spoilerTagId, setSpoilerTagId])
+
+  return spoilerTagId
 }
 
 function Pagination({
@@ -1056,21 +1097,26 @@ function PostCard({
   post,
   index = 0,
   isMicropost,
+  hasSpoiler,
   canDelete,
   session,
 }: {
   post: WpPost
   index?: number
   isMicropost: boolean
+  hasSpoiler: boolean
   canDelete: boolean
   session: WpSession
 }) {
+  const [spoilerRevealed, setSpoilerRevealed] = useState(false)
   const authorName = getAuthorName(post)
   const title = stripHtml(post.title.rendered)
   const stripPostText = isMicropost ? stripHtmlPreservingLineBreaks : stripHtml
   const bodyText = stripPostText(post.content.rendered) || stripPostText(post.excerpt.rendered)
   const hasMore = Array.from(bodyText).length > POST_EXCERPT_MAX_LENGTH
   const excerpt = truncateText(bodyText, POST_EXCERPT_MAX_LENGTH)
+  const showSpoilerGate = hasSpoiler && !spoilerRevealed
+  const canOpenPost = hasMore && !isMicropost && !showSpoilerGate
   const cardStyle = { '--card-index': index } as CSSProperties
   const cardContent = (
     <>
@@ -1082,17 +1128,37 @@ function PostCard({
           <span>{formatPostDate(post.date)}</span>
         </div>
         {!isMicropost && <h3 className="post-title">{title}</h3>}
-        {excerpt && <p className="post-excerpt">{excerpt}</p>}
-        {hasMore && <span className="read-more-button">続きを読む</span>}
+        {showSpoilerGate ? (
+          <button
+            className="spoiler-reveal-button"
+            type="button"
+            aria-expanded={spoilerRevealed}
+            onClick={() => setSpoilerRevealed(true)}
+          >
+            <CircleAlert size={17} aria-hidden="true" strokeWidth={3} />
+            ネタバレ注意！
+          </button>
+        ) : (
+          excerpt && <p className="post-excerpt">{excerpt}</p>
+        )}
+        {canOpenPost && <span className="read-more-button">続きを読む</span>}
       </div>
-      {canDelete && <DeleteMicropostButton postId={post.id} postLabel={excerpt || title} session={session} />}
+      {canDelete && (
+        <DeleteMicropostButton
+          postId={post.id}
+          postLabel={showSpoilerGate ? 'ネタバレ注意の投稿' : excerpt || title}
+          session={session}
+        />
+      )}
     </>
   )
 
-  if (!hasMore || isMicropost) {
+  if (!canOpenPost) {
     return (
       <article
-        className={`post-card ${hasMore ? 'has-read-more' : ''} ${isMicropost ? 'is-micropost' : ''}`}
+        className={`post-card ${canOpenPost ? 'has-read-more' : ''} ${isMicropost ? 'is-micropost' : ''} ${
+          showSpoilerGate ? 'has-spoiler-gate' : ''
+        }`}
         style={cardStyle}
       >
         {cardContent}
@@ -1623,6 +1689,7 @@ function MicropostComposer({ session }: { session: WpSession }) {
   const [authError, setAuthError] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
   const [content, setContent] = useState('')
+  const [isSpoiler, setIsSpoiler] = useState(false)
   const [postError, setPostError] = useState('')
   const [postSuccess, setPostSuccess] = useState('')
   const [isPosting, setIsPosting] = useState(false)
@@ -1731,9 +1798,17 @@ function MicropostComposer({ session }: { session: WpSession }) {
 
       const tagId = session.micropostTagId ?? (await getOrCreateMicropostTagId(currentCredentials))
       session.setMicropostTagId(tagId)
+      const tagIds = [tagId]
 
-      await createMicropost(content, tagId, currentCredentials)
+      if (isSpoiler) {
+        const spoilerTagId = session.spoilerTagId ?? (await getOrCreateSpoilerTagId(currentCredentials))
+        session.setSpoilerTagId(spoilerTagId)
+        tagIds.push(spoilerTagId)
+      }
+
+      await createMicropost(content, tagIds, currentCredentials)
       setContent('')
+      setIsSpoiler(false)
       setPostSuccess('短文を投稿しました。')
       window.dispatchEvent(new Event(MICROPOST_CREATED_EVENT))
     } catch (error) {
@@ -1795,6 +1870,18 @@ function MicropostComposer({ session }: { session: WpSession }) {
               <div className="composer-count" aria-live="polite">
                 {characterCount} / {MICROPOST_MAX_LENGTH}
               </div>
+              <label className="composer-checkbox">
+                <input
+                  type="checkbox"
+                  checked={isSpoiler}
+                  onChange={(event) => {
+                    setIsSpoiler(event.target.checked)
+                    setPostError('')
+                    setPostSuccess('')
+                  }}
+                />
+                <span>ネタバレ注意</span>
+              </label>
               {postError && (
                 <p className="composer-message composer-message-error" role="alert">
                   {postError}
