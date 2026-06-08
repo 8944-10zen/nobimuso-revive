@@ -40,7 +40,7 @@ import {
   type WpPostPage,
 } from './lib/wpApi'
 
-const POSTS_PER_PAGE = 7
+const POSTS_PER_PAGE = 14
 const MICROPOST_MAX_LENGTH = 140
 const POST_EXCERPT_MAX_LENGTH = 140
 const AUTH_REQUIRED_MESSAGE = 'ユーザー名とアプリケーションパスワードを入力してください。'
