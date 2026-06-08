@@ -1113,10 +1113,9 @@ function PostCard({
   const title = stripHtml(post.title.rendered)
   const stripPostText = isMicropost ? stripHtmlPreservingLineBreaks : stripHtml
   const bodyText = stripPostText(post.content.rendered) || stripPostText(post.excerpt.rendered)
-  const hasMore = Array.from(bodyText).length > POST_EXCERPT_MAX_LENGTH
   const excerpt = truncateText(bodyText, POST_EXCERPT_MAX_LENGTH)
   const showSpoilerGate = hasSpoiler && !spoilerRevealed
-  const canOpenPost = hasMore && !isMicropost && !showSpoilerGate
+  const canOpenPost = !isMicropost && !showSpoilerGate
   const cardStyle = { '--card-index': index } as CSSProperties
   const cardContent = (
     <>
