@@ -25,6 +25,7 @@ import {
   WpApiError,
   createMicropost,
   deleteWpPost,
+  fetchLatestMicropostByAuthor,
   fetchMicropostTagId,
   fetchPost,
   fetchPosts,
@@ -42,6 +43,9 @@ import {
 
 const POSTS_PER_PAGE = 14
 const MICROPOST_MAX_LENGTH = 140
+const TENZEN_MICROPOST_COOLDOWN_HOURS = 6
+const TENZEN_MICROPOST_COOLDOWN_MS = TENZEN_MICROPOST_COOLDOWN_HOURS * 60 * 60 * 1000
+const TENZEN_MICROPOST_COOLDOWN_MESSAGE = 'Error : "STFU"'
 const POST_EXCERPT_MAX_LENGTH = 140
 const AUTH_REQUIRED_MESSAGE = 'ユーザー名とアプリケーションパスワードを入力してください。'
 const POSTS_RELOAD_REQUESTED_EVENT = 'posts-reload-requested'
@@ -1786,6 +1790,15 @@ function MicropostComposer({ session }: { session: WpSession }) {
       session.setMicropostTagId(tagId)
       const tagIds = [tagId]
 
+      if (isTenzenUser(currentCredentials.username)) {
+        const latestMicropost = await fetchLatestMicropostByAuthor(user.id, tagId)
+
+        if (latestMicropost && isWithinTenzenMicropostCooldown(latestMicropost)) {
+          setPostError(TENZEN_MICROPOST_COOLDOWN_MESSAGE)
+          return
+        }
+      }
+
       if (isSpoiler) {
         const spoilerTagId = session.spoilerTagId ?? (await getOrCreateSpoilerTagId(currentCredentials))
         session.setSpoilerTagId(spoilerTagId)
@@ -1907,6 +1920,23 @@ function getMicropostValidationError(value: string): string {
   }
 
   return ''
+}
+
+function isTenzenUser(username: string): boolean {
+  return username.trim().toLowerCase() === 'tenzen'
+}
+
+function isWithinTenzenMicropostCooldown(post: WpPost): boolean {
+  const postedAt = getWpPostTimestamp(post)
+
+  return postedAt !== null && Date.now() - postedAt < TENZEN_MICROPOST_COOLDOWN_MS
+}
+
+function getWpPostTimestamp(post: WpPost): number | null {
+  const value = post.date_gmt ? `${post.date_gmt}Z` : post.date
+  const timestamp = Date.parse(value)
+
+  return Number.isNaN(timestamp) ? null : timestamp
 }
 
 function hasBlockedControlCharacter(value: string): boolean {

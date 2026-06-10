@@ -23,6 +23,7 @@ export type WpAuthor = {
 export type WpPost = {
   id: number
   date: string
+  date_gmt?: string
   slug: string
   link: string
   author: number
@@ -196,6 +197,19 @@ export async function fetchPosts(
 
 export function fetchPost(id: string): Promise<WpPost> {
   return requestWp<WpPost>(`/posts/${encodeURIComponent(id)}?_embed`)
+}
+
+export async function fetchLatestMicropostByAuthor(authorId: number, micropostTagId: number): Promise<WpPost | null> {
+  const params = new URLSearchParams({
+    author: String(authorId),
+    tags: String(micropostTagId),
+    per_page: '1',
+    page: '1',
+  })
+
+  const posts = await requestWp<WpPost[]>(`/posts?${params.toString()}`)
+
+  return posts[0] ?? null
 }
 
 export function verifyWpCredentials(credentials: WpCredentials): Promise<WpCurrentUser> {
