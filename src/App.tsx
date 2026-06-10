@@ -635,7 +635,6 @@ function HeaderAuthControls({ session }: { session: WpSession }) {
             submitLabel="ログイン"
             onUsernameChange={setUsername}
             onApplicationPasswordChange={setApplicationPassword}
-            onCancel={() => setIsOpen(false)}
             onSubmit={handleAuthenticate}
           />
         </ModalPanel>
@@ -654,7 +653,6 @@ function AuthForm({
   submitLabel,
   onUsernameChange,
   onApplicationPasswordChange,
-  onCancel,
   onSubmit,
 }: {
   titleId: string
@@ -666,7 +664,6 @@ function AuthForm({
   submitLabel: string
   onUsernameChange: (value: string) => void
   onApplicationPasswordChange: (value: string) => void
-  onCancel: () => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }) {
   return (
@@ -697,9 +694,6 @@ function AuthForm({
         </p>
       )}
       <div className="composer-actions">
-        <button className="composer-secondary-button" type="button" onClick={onCancel}>
-          キャンセル
-        </button>
         <button className="composer-primary-button" type="submit" disabled={loading}>
           {loading ? '認証中...' : submitLabel}
         </button>
@@ -1135,7 +1129,7 @@ function PostCard({
             onClick={() => setSpoilerRevealed(true)}
           >
             <CircleAlert size={17} aria-hidden="true" strokeWidth={3} />
-            ネタバレ注意！
+            masked
           </button>
         ) : (
           excerpt && <p className="post-excerpt">{excerpt}</p>
@@ -1145,7 +1139,7 @@ function PostCard({
       {canDelete && (
         <DeleteMicropostButton
           postId={post.id}
-          postLabel={showSpoilerGate ? 'ネタバレ注意の投稿' : excerpt || title}
+          postLabel={showSpoilerGate ? 'maskedの投稿' : excerpt || title}
           session={session}
         />
       )}
@@ -1289,7 +1283,6 @@ function DeleteMicropostButton({
               submitLabel="認証する"
               onUsernameChange={setUsername}
               onApplicationPasswordChange={setApplicationPassword}
-              onCancel={() => setView('closed')}
               onSubmit={handleAuthenticate}
             />
           ) : (
@@ -1844,7 +1837,6 @@ function MicropostComposer({ session }: { session: WpSession }) {
               submitLabel="認証する"
               onUsernameChange={setUsername}
               onApplicationPasswordChange={setApplicationPassword}
-              onCancel={() => setView('closed')}
               onSubmit={handleAuthenticate}
             />
           ) : (
@@ -1871,7 +1863,7 @@ function MicropostComposer({ session }: { session: WpSession }) {
                     setPostError('')
                   }}
                 />
-                <span>ネタバレ注意</span>
+                <span>masked</span>
               </label>
               {postError && (
                 <p className="composer-message composer-message-error" role="alert">
